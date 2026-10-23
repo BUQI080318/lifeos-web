@@ -102,7 +102,38 @@ export function createArchitecture(canvas,onProject,onFailure,initialQuality='ba
     },undefined,()=>{});
   }
   loadArt('/lifeos-web/assets/lifeos/characters/window-reader.png',1.48,1.88,-3.5,3.02,3.29);
-  loadArt('/lifeos-web/assets/lifeos/characters/corridor-walker.png',.9,2.1,1.2,1.05,-28);
+  // A solid, quietly posed architectural figure: no camera-facing image plane.
+  const figure=new T.Group();figure.position.set(.85,0,-28);figure.rotation.y=-.55;scene.add(figure);
+  const cloth=own(new T.MeshStandardMaterial({color:'#596e7a',roughness:.98}));
+  const trousers=own(new T.MeshStandardMaterial({color:'#354653',roughness:.96}));
+  const skin=own(new T.MeshStandardMaterial({color:'#a19d96',roughness:.9}));
+  const dark=own(new T.MeshStandardMaterial({color:'#263541',roughness:.94}));
+  const round=own(new T.SphereGeometry(1,16,12));
+  function volume(material,position,scale){const mesh=new T.Mesh(round,material);mesh.position.set(...position);mesh.scale.set(...scale);mesh.castShadow=mesh.receiveShadow=true;figure.add(mesh);return mesh;}
+  function limb(a,b,r1,r2,material){const from=new T.Vector3(...a),to=new T.Vector3(...b),delta=to.clone().sub(from);const mesh=new T.Mesh(own(new T.CylinderGeometry(r2,r1,delta.length(),12)),material);mesh.position.copy(from).add(to).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());mesh.castShadow=mesh.receiveShadow=true;figure.add(mesh);return mesh;}
+  // The weight rests on one leg; both soles meet the floor at y = -.02.
+  volume(dark,[-.105,.045,.01],[.075,.065,.15]);
+  volume(dark,[.13,.045,.11],[.075,.065,.15]);
+  limb([-.105,.11,0],[-.10,.52,0],.058,.074,trousers);
+  limb([-.10,.52,0],[-.08,.94,0],.074,.09,trousers);
+  limb([.13,.11,.10],[.15,.49,.08],.055,.073,trousers);
+  limb([.15,.49,.08],[.09,.94,0],.073,.09,trousers);
+  volume(trousers,[0,.94,0],[.20,.16,.12]);
+  const coatProfile=[[.19,.89],[.205,.93],[.17,1.10],[.185,1.31],[.22,1.39],[.16,1.45],[.075,1.49]].map(([r,y])=>new T.Vector2(r,y));
+  const coat=new T.Mesh(own(new T.LatheGeometry(coatProfile,20)),cloth);coat.scale.z=.66;coat.castShadow=coat.receiveShadow=true;figure.add(coat);
+  limb([0,1.45,0],[.015,1.57,0],.06,.065,skin);
+  const head=volume(skin,[.018,1.66,-.005],[.095,.13,.095]);head.rotation.z=-.07;
+  volume(dark,[.013,1.73,.018],[.10,.083,.096]);
+  volume(skin,[.025,1.665,-.092],[.027,.032,.028]);
+  limb([-.20,1.37,0],[-.245,1.12,-.025],.078,.061,cloth);
+  limb([-.245,1.12,-.025],[-.19,.95,-.09],.061,.044,cloth);
+  volume(skin,[-.19,.925,-.09],[.043,.062,.035]);
+  limb([.20,1.37,0],[.25,1.12,.015],.078,.06,cloth);
+  limb([.25,1.12,.015],[.20,.96,-.075],.06,.043,cloth);
+  volume(skin,[.20,.935,-.075],[.043,.06,.035]);
+  volume(dark,[0,1.24,.155],[.15,.22,.075]);
+  for(const x of [-.125,.125])limb([x,1.41,.02],[x,1.08,-.105],.016,.016,dark);
+  contactPatch(.745,-28,.23,.37);contactPatch(.98,-27.9,.23,.37);
   const anchors=Object.fromEntries([...signs].map(([id,mesh])=>[id,mesh.position]));
   function quaternion(position,target){const temporary=new T.PerspectiveCamera();temporary.position.copy(position);temporary.lookAt(target);return temporary.quaternion.clone();}
   function pose(name){
