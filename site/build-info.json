@@ -1,0 +1,23 @@
+{
+  "app": "LifeOS — 个人成长操作系统",
+  "sdk": "2.118.0",
+  "files": [
+    "index.html",
+    "cloud.css",
+    "cinematic.css",
+    "render-upgrade.css",
+    "cinematic.js",
+    "spatial-scene.js",
+    "spatial-config.js",
+    "render-materials.js",
+    "config.js",
+    "core.js",
+    "app.js",
+    "fluid-renderer.js",
+    "account-storage.js",
+    "workbench-frame.html",
+    "workbench-loader.js",
+    "vendor/supabase.js",
+    "vendor/SUPABASE-LICENSE.txt"
+  ]
+}

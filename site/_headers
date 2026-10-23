@@ -1,0 +1,23 @@
+/*
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+
+/index.html
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+
+/auth/callback
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+
+/auth/reset
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+
+/workbench/frame
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-B8x2yxduKyPOdHv4ws85c+G4ueAoTxv4Ka2HSGJE57c=' 'sha256-lurUFaULyj4YZ70e9VdoeoFmHCITanW2jd4mNOmiUgk=' 'sha256-2IroA6TCMg+xlR2xyqeW6ji8YN1olwEItGgNjuH/p/4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'
+
+/workbench-frame.html
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-B8x2yxduKyPOdHv4ws85c+G4ueAoTxv4Ka2HSGJE57c=' 'sha256-lurUFaULyj4YZ70e9VdoeoFmHCITanW2jd4mNOmiUgk=' 'sha256-2IroA6TCMg+xlR2xyqeW6ji8YN1olwEItGgNjuH/p/4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'

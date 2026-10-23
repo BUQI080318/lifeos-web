@@ -1,0 +1,3 @@
+/auth/callback /index.html 200!
+/auth/reset /index.html 200!
+/workbench/frame /workbench-frame.html 200!
