@@ -38,7 +38,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     if(scene)return scene;if(scenePromise)return scenePromise;
     if(root.dataset.renderer==='fallback')return null;
     scenePromise=import('./spatial-scene.js').then(module=>{
-      scene=module.createArchitecture($('architecture'),project,fallback,quality);scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';return scene;
+      scene=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';return scene;
     }).catch(()=>{fallback();return null;});return scenePromise;
   }
   function render(){
@@ -47,7 +47,10 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       const button=document.createElement('button');button.type='button';button.dataset.memoryId=row.id;button.className='exhibit-button';
       const date=document.createElement('span');date.textContent=new Date(row.created_at).toLocaleDateString('zh-CN');
       const title=document.createElement('strong');title.textContent=Array.from(row.content).slice(0,26).join('');
-      button.append(date,title);button.setAttribute('aria-label','打开记忆：'+row.content.slice(0,60));button.onclick=()=>navigate('memory/'+row.id);$('exhibitButtons').append(button);
+      button.append(date,title);button.setAttribute('aria-label','打开记忆：'+row.content.slice(0,60));button.onclick=()=>navigate('memory/'+row.id);
+      button.addEventListener('pointerenter',()=>scene?.highlight(row.id,true));button.addEventListener('pointerleave',()=>scene?.highlight(row.id,false));
+      button.addEventListener('focus',()=>scene?.highlight(row.id,true));button.addEventListener('blur',()=>scene?.highlight(row.id,false));
+      $('exhibitButtons').append(button);
     }
     $('galleryEmpty').hidden=current==='entrance'||visible.length>0;
     $('galleryEmptyText').textContent=!userId?'登录后，你主动选入的记忆会在这里展出。':!rows.length?'这里为你想留下的经历留着位置。第一条记忆，可以从今天开始。':'在「完整档案」中选择“加入长廊”，这里便会出现你的记忆。筛选条件也可能隐藏了已选展板。';
@@ -78,8 +81,9 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   }
   async function closeDetail(animate=true){
     if(!dialog.open)return;const id=selected;
-    if(animate)await animateCarrier(dialog,scene?.rect(id),true);
-    dialog.close();dialog.style.transform='none';scene?.hidePanel(id,false);selected=null;
+    if(animate&&scene)await Promise.all([animateCarrier(dialog,scene.rect(id),true),scene.returnFromDetail(id)]);
+    else if(animate)await animateCarrier(dialog,null,true);
+    dialog.close();dialog.style.transform='none';if(!animate)scene?.hidePanel(id,false);selected=null;
   }
   async function route(next,instant=false){
     const mine=++serial,returnId=selected;stopAnimation();scene?.cancel();
