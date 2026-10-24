@@ -92,17 +92,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     if(mine!==serial)return;
     current=next;root.dataset.target=next;root.dataset.moving='true';root.dataset.transition='travelling';root.hidden=false;
     carrier.inert=true;root.setAttribute('aria-busy','true');onPrepare(next);
-    // Functional destinations do not wait for or travel through the GLB gallery.
-    if(next==='account'||next==='workbench'){
-      scene?.setActive(false);root.hidden=true;carrier.hidden=false;carrier.inert=false;
-      carrier.style.transform='none';carrier.style.clipPath='none';
-      document.body.dataset.spatial='false';document.body.dataset.surface=next;
-      surfaceName=next;onView(next);carrier.scrollTop=scrollPositions[next]||0;
-      root.dataset.moving='false';root.removeAttribute('aria-busy');
-      document.querySelectorAll('[data-space-nav]').forEach(button=>button.setAttribute('aria-current',button.dataset.spaceNav===next?'page':'false'));
-      return;
-    }
-    carrier.hidden=true;document.body.dataset.spatial='true';document.body.dataset.surface='';onView('spatial');
+    if(!surfaceName){carrier.hidden=true;document.body.dataset.spatial='true';document.body.dataset.surface='';onView('spatial');}
     $('entranceCaption').hidden=next!=='entrance';$('entrancePortals').hidden=next!=='entrance';
     const actualScene=await ensureScene();if(mine!==serial)return;actualScene?.setActive(true);
     if(surfaceName){
@@ -110,7 +100,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       await animateCarrier(carrier,actualScene?.surfaceRect(outgoing),true,instant);if(mine!==serial)return;
       actualScene?.hideSurface(outgoing,false);surfaceName=null;
     }
-    carrier.hidden=true;carrier.style.transform='none';document.body.dataset.surface='';document.body.dataset.spatial='true';onView('spatial');
+    carrier.hidden=true;carrier.style.transform='none';carrier.style.clipPath='none';document.body.dataset.surface='';document.body.dataset.spatial='true';onView('spatial');
     root.dataset.state=next.startsWith('memory/')?'detail':next;
     const gallery=next==='gallery'||next.startsWith('memory/');
     $('galleryTools').hidden=!gallery;$('entranceCaption').hidden=next!=='entrance';

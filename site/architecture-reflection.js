@@ -37,7 +37,7 @@ export function createFloorReflection(renderer,scene,floor,emitters=[]){
   `);
  };
  floor.material.customProgramCacheKey=()=> 'v16-radiance-planar-floor';floor.material.needsUpdate=true;
- return {setQuality(quality){const w=quality==='low'?256:quality==='high'?880:512;const target=mirror.getRenderTarget();if(target.width!==w)target.setSize(w,Math.round(w*656/880));},update(camera){
+ return {update(camera){
   const background=scene.background;
   scene.background=new THREE.Color().setRGB(.46*.18,.67*.18,.83*.18,THREE.LinearSRGBColorSpace);
   floor.visible=false;emissionGroup.visible=true;mirror.onBeforeRender(renderer,scene,camera);floor.visible=true;emissionGroup.visible=false;
