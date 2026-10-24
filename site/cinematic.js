@@ -28,10 +28,10 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     for(const sign of signs||[]){const button=root.querySelector(`[data-anchor="${sign.id}"]`);if(!button)continue;const matrix=surfaceTransform(sign.rect.points,320,104);if(matrix){button.style.left='0';button.style.top='0';button.style.transform=matrix;}button.classList.toggle('out-of-frame',!sign.visible);}
     const placed=[];
     for(const panel of panels){const button=$('exhibitButtons').querySelector(`[data-memory-id="${panel.id}"]`);if(!button)continue;
-      let y=panel.rect.top+panel.rect.height+8;const w=Math.min(190,button.offsetWidth||190),x=Math.max(w/2+12,Math.min(root.clientWidth-w/2-12,panel.x));
-      for(const previous of placed)if(Math.abs(x-previous.x)<w+8&&Math.abs(y-previous.y)<58)y=previous.y+62;
-      y=Math.min(y,root.clientHeight-130);placed.push({x,y});
-      button.style.left=x+'px';button.style.top=y+'px';button.classList.toggle('out-of-frame',!panel.visible);}
+      button.style.left=panel.rect.left+'px';button.style.top=panel.rect.top+'px';
+      button.style.width=panel.rect.width+'px';button.style.height=panel.rect.height+'px';
+      button.classList.toggle('out-of-frame',!panel.visible);}
+
   }
   function fallback(){root.dataset.renderer='fallback';scene?.destroy();scene=null;scenePromise=null;$('renderStatus').textContent='当前使用标准展览，所有记忆操作仍可使用。';}
   async function ensureScene(){
@@ -92,6 +92,18 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     if(mine!==serial)return;
     current=next;root.dataset.target=next;root.dataset.moving='true';root.dataset.transition='travelling';root.hidden=false;
     carrier.inert=true;root.setAttribute('aria-busy','true');onPrepare(next);
+    // Functional destinations do not wait for or travel through the GLB gallery.
+    if(next==='account'||next==='workbench'){
+      scene?.setActive(false);root.hidden=true;carrier.hidden=false;carrier.inert=false;
+      carrier.style.transform='none';carrier.style.clipPath='none';
+      document.body.dataset.spatial='false';document.body.dataset.surface=next;
+      surfaceName=next;onView(next);carrier.scrollTop=scrollPositions[next]||0;
+      root.dataset.moving='false';root.removeAttribute('aria-busy');
+      document.querySelectorAll('[data-space-nav]').forEach(button=>button.setAttribute('aria-current',button.dataset.spaceNav===next?'page':'false'));
+      return;
+    }
+    carrier.hidden=true;document.body.dataset.spatial='true';document.body.dataset.surface='';onView('spatial');
+    $('entranceCaption').hidden=next!=='entrance';$('entrancePortals').hidden=next!=='entrance';
     const actualScene=await ensureScene();if(mine!==serial)return;actualScene?.setActive(true);
     if(surfaceName){
       const outgoing=surfaceName;scrollPositions[outgoing]=carrier.scrollTop;
@@ -146,7 +158,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     start(initial){route(initial||'entrance',true);},
     setData(data){
       const changed=userId!==(data?.userId||null);userId=data?.userId||null;rows=data?.rows||[];featured=data?.featured||[];
-      if(changed){serial++;stopAnimation();if(dialog.open)dialog.close();dialog.style.transform='none';dialog.querySelector('.shared-memory-image')?.remove();for(const id of ['detailTitle','detailContent','detailMeta','detailSource','detailPrivacy','detailReflections','detailStatus'])$(id).replaceChildren();selected=null;scene?.setMemories([]);$('galleryYear').value='';$('galleryCategory').value='';}
+      if(changed){if(selected)serial++;stopAnimation();if(dialog.open)dialog.close();dialog.style.transform='none';dialog.querySelector('.shared-memory-image')?.remove();for(const id of ['detailTitle','detailContent','detailMeta','detailSource','detailPrivacy','detailReflections','detailStatus'])$(id).replaceChildren();selected=null;scene?.setMemories([]);$('galleryYear').value='';$('galleryCategory').value='';}
       const years=[...new Set(rows.map(row=>new Date(row.created_at).getFullYear()))].sort((a,b)=>b-a);const year=$('galleryYear').value;
       $('galleryYear').replaceChildren(new Option('所有年份',''),...years.map(y=>new Option(String(y),String(y))));$('galleryYear').value=years.includes(Number(year))?year:'';
       render();if((changed&&current.startsWith('memory/'))||(selected&&!rows.some(row=>row.id===selected&&row.enabled&&featured.includes(row.id))))navigate('gallery',true);else if(selected){const row=rows.find(row=>row.id===selected);if(row)fillDetail(row);}
