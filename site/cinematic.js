@@ -33,12 +33,13 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       button.classList.toggle('out-of-frame',!panel.visible);}
 
   }
-  function fallback(){root.dataset.renderer='fallback';scene?.destroy();scene=null;scenePromise=null;$('renderStatus').textContent='当前使用标准展览，所有记忆操作仍可使用。';}
+  function fallback(){root.dataset.renderer='fallback';scene?.destroy();scene=null;scenePromise=null;$('renderStatus').textContent='建筑资源未能完成加载（可能网络超时或 WebGL 不可用）。当前可使用标准界面；刷新可重新加载完整三维建筑。';}
   async function ensureScene(){
     if(scene)return scene;if(scenePromise)return scenePromise;
     if(root.dataset.renderer==='fallback')return null;
+    root.dataset.moving='false';$('renderStatus').textContent='正在下载建筑与完整光照资源，首次加载约 70 MB…';
     scenePromise=import('./architecture-glb.js').then(async module=>{
-      scene=await module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';return scene;
+      let expired=false,timer;const pending=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));pending.then(value=>{if(expired)value.destroy();},()=>{});try{scene=await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(new Error('建筑加载超时'));},90000);})]);}finally{clearTimeout(timer);}scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';$('renderStatus').textContent='建筑已加载，可以选择入口。';return scene;
     }).catch(()=>{fallback();return null;});return scenePromise;
   }
   function render(){
@@ -94,7 +95,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     carrier.inert=true;root.setAttribute('aria-busy','true');onPrepare(next);
     if(!surfaceName){carrier.hidden=true;document.body.dataset.spatial='true';document.body.dataset.surface='';onView('spatial');}
     $('entranceCaption').hidden=next!=='entrance';$('entrancePortals').hidden=next!=='entrance';
-    const actualScene=await ensureScene();if(mine!==serial)return;actualScene?.setActive(true);
+    const actualScene=await ensureScene();if(mine!==serial)return;actualScene?.setActive(true);root.dataset.moving='true';
     if(surfaceName){
       const outgoing=surfaceName;scrollPositions[outgoing]=carrier.scrollTop;
       await animateCarrier(carrier,actualScene?.surfaceRect(outgoing),true,instant);if(mine!==serial)return;
