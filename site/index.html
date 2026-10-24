@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob: https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>LifeOS — 个人成长操作系统</title>
   <link rel="stylesheet" href="/lifeos-web/cloud.css">
@@ -11,7 +11,7 @@
   <script defer src="/lifeos-web/config.js"></script>
   <script defer src="/lifeos-web/fluid-renderer.js"></script>
   <script type="module" src="/lifeos-web/app.js"></script>
-</head>
+<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css"></head>
 <body>
   <canvas id="fluid" aria-hidden="true"></canvas>
   <header><a class="brand" href="/lifeos-web/#space/entrance">LifeOS <span>个人成长操作系统</span></a><nav class="space-nav" aria-label="空间导航"><button type="button" data-space-nav="entrance">入口</button><button type="button" data-space-nav="gallery">记忆长廊</button><button type="button" data-space-nav="workbench">成长工作台</button><button type="button" data-space-nav="account">完整档案</button></nav><label class="mode-control">体验节奏<select id="spaceMode" aria-label="体验节奏"><option value="standard">标准</option><option value="immersive">沉浸</option><option value="reduced">减少动态</option></select></label><label class="mode-control graphics-control">画面质量<select id="graphicsQuality" aria-label="画面质量"><option value="high">高质量</option><option value="balanced" selected>平衡</option><option value="low">低功耗</option></select></label><div class="actions"><button id="openWorkbench" type="button" hidden>成长工作台</button><button id="openAccount" type="button" hidden>账户与记忆</button><button id="motion" type="button" aria-pressed="false">暂停背景</button><button id="topLogout" type="button" data-action="logout" hidden>退出登录</button></div></header>
@@ -23,7 +23,7 @@
     <div id="exhibitButtons" aria-label="展出的记忆" hidden></div>
     <div id="galleryEmpty" hidden><p id="galleryEmptyText"></p><button data-go="account" type="button">保存记忆 / 选择展板</button></div>
     <div id="galleryTools" hidden><label>年份<select id="galleryYear"><option value="">所有年份</option></select></label><label>主题<select id="galleryCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><button id="galleryRefresh" type="button">刷新记忆</button><button data-go="account" type="button">完整档案</button></div>
-    <div class="space-bottom"><div><p>空间由你主动选择的记忆构成。文字与经历，值得被认真保存。</p><p id="renderStatus">鼠标、触屏或 Tab 键选择入口；可随时切换为减少动态。</p></div><p class="art-note">窗边阅读 · 原创石墨素描<br>公共艺术陈列，并非私人记忆</p></div><p id="spaceNarration" role="status" aria-live="polite"></p>
+    <div class="space-bottom"><div><p>空间由你主动选择的记忆构成。文字与经历，值得被认真保存。</p><p id="renderStatus">鼠标、触屏或 Tab 键选择入口；可随时切换为减少动态。</p></div><p class="art-note">混凝土中庭 · 建筑光影<br>展品仅来自你主动选入的私人记忆</p></div><p id="spaceNarration" role="status" aria-live="polite"></p>
   </section>
   <dialog id="memoryDetail" aria-labelledby="detailTitle"><div class="detail-head"><span id="detailMeta"></span><button id="detailClose" type="button">返回长廊</button></div><div class="detail-body"><h2 id="detailTitle"></h2><p id="detailContent"></p><p id="detailSource"></p><p id="detailPrivacy"></p><p id="detailStatus" role="alert"></p><section id="detailReflections" aria-label="后来的感想"></section><div class="detail-actions"><button id="detailEdit" type="button">编辑原记录</button><button id="detailReflect" type="button">添加新的感想</button><button id="detailHide" type="button">从展览隐藏</button></div></div></dialog>
   <main id="functionalSurface" aria-label="LifeOS 功能界面">

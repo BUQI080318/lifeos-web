@@ -37,8 +37,8 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   async function ensureScene(){
     if(scene)return scene;if(scenePromise)return scenePromise;
     if(root.dataset.renderer==='fallback')return null;
-    scenePromise=import('./spatial-scene.js').then(module=>{
-      scene=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';return scene;
+    scenePromise=import('./architecture-glb.js').then(async module=>{
+      scene=await module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';return scene;
     }).catch(()=>{fallback();return null;});return scenePromise;
   }
   function render(){
@@ -70,18 +70,19 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   function stopAnimation(){if(animation){if(animatedElement?.isConnected)animatedElement.style.transform=getComputedStyle(animatedElement).transform;animation.cancel();animation=null;}}
   function animateCarrier(element,rect,reverse=false,instant=false){
     stopAnimation();if(effective()==='reduced'||!rect||instant){element.style.transform='none';return Promise.resolve();}
-    const before=element.style.transform;element.style.transform='none';const target=element.getBoundingClientRect();element.style.transform=before;
+    const before=element.style.transform;element.style.transform='none';const target=element.getBoundingClientRect();const shared=element===dialog?element.querySelector('.shared-memory-image'):null;const basisHeight=shared?.offsetHeight||target.height;element.style.transform=before;
     const offset=$('architecture').getBoundingClientRect();
     const points=rect.points.map(p=>({x:p.x+offset.left-target.left,y:p.y+offset.top-target.top}));
-    const projected=surfaceTransform(points,target.width,target.height);if(!projected)return Promise.resolve();
+    const projected=surfaceTransform(points,target.width,basisHeight);if(!projected)return Promise.resolve();
     const start=before&&before!=='none'?before:reverse?'none':projected,end=reverse?projected:'none';
-    const player=element.animate([{transform:start,borderRadius:reverse?'6px':'1px'},{transform:end,borderRadius:reverse?'1px':'6px'}],{duration:effective()==='immersive'?650:380,easing:'cubic-bezier(.22,.7,.25,1)',fill:'forwards'});
+    const crop=`inset(0 0 ${Math.max(0,target.height-basisHeight)}px 0)`;
+    const player=element.animate([{transform:start,clipPath:reverse?'inset(0)':crop,borderRadius:reverse?'6px':'1px'},{transform:end,clipPath:reverse?crop:'inset(0)',borderRadius:reverse?'1px':'6px'}],{duration:effective()==='immersive'?1100:800,easing:'cubic-bezier(.22,.7,.25,1)',fill:'forwards'});
     animation=player;animatedElement=element;
-    return player.finished.then(()=>{if(animation===player){element.style.transform=end;player.cancel();animation=null;}}).catch(()=>{});
+    return player.finished.then(()=>{if(animation===player){element.style.transform=end;element.style.clipPath=reverse?crop:'none';player.cancel();animation=null;}}).catch(()=>{});
   }
   async function closeDetail(animate=true){
     if(!dialog.open)return;const id=selected;
-    if(animate&&scene)await Promise.all([animateCarrier(dialog,scene.rect(id),true),scene.returnFromDetail(id)]);
+    if(animate&&scene){await animateCarrier(dialog,scene.rect(id),true);dialog.close();dialog.style.transform='none';dialog.style.clipPath='none';scene.hidePanel(id,false);await scene.returnFromDetail(id);}
     else if(animate)await animateCarrier(dialog,null,true);
     dialog.close();dialog.style.transform='none';if(!animate)scene?.hidePanel(id,false);selected=null;
   }
@@ -110,7 +111,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       if(!selectedRows().some(item=>item.id===id)){$('galleryYear').value='';$('galleryCategory').value='';render();}
       let rect=actualScene?await actualScene.approach(id):null;
       if(mine!==serial)return;
-      selected=id;fillDetail(row);if(!dialog.open)dialog.showModal();
+      selected=id;fillDetail(row);let shared=dialog.querySelector('.shared-memory-image');if(!shared){shared=document.createElement('img');shared.className='shared-memory-image';shared.alt='当前记忆展品';dialog.prepend(shared);}shared.src=actualScene?.preview(id)||'';shared.hidden=!shared.getAttribute('src');dialog.style.clipPath='none';if(!dialog.open)dialog.showModal();
       await animateCarrier(dialog,rect,false,instant);if(mine!==serial)return;actualScene?.hidePanel(id,true);$('detailClose').focus({preventScroll:true});
     }else{
       await actualScene?.go(next,instant);if(mine!==serial)return;
@@ -145,7 +146,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     start(initial){route(initial||'entrance',true);},
     setData(data){
       const changed=userId!==(data?.userId||null);userId=data?.userId||null;rows=data?.rows||[];featured=data?.featured||[];
-      if(changed){serial++;stopAnimation();if(dialog.open)dialog.close();dialog.style.transform='none';for(const id of ['detailTitle','detailContent','detailMeta','detailSource','detailPrivacy','detailReflections','detailStatus'])$(id).replaceChildren();selected=null;scene?.setMemories([]);$('galleryYear').value='';$('galleryCategory').value='';}
+      if(changed){serial++;stopAnimation();if(dialog.open)dialog.close();dialog.style.transform='none';dialog.querySelector('.shared-memory-image')?.remove();for(const id of ['detailTitle','detailContent','detailMeta','detailSource','detailPrivacy','detailReflections','detailStatus'])$(id).replaceChildren();selected=null;scene?.setMemories([]);$('galleryYear').value='';$('galleryCategory').value='';}
       const years=[...new Set(rows.map(row=>new Date(row.created_at).getFullYear()))].sort((a,b)=>b-a);const year=$('galleryYear').value;
       $('galleryYear').replaceChildren(new Option('所有年份',''),...years.map(y=>new Option(String(y),String(y))));$('galleryYear').value=years.includes(Number(year))?year:'';
       render();if((changed&&current.startsWith('memory/'))||(selected&&!rows.some(row=>row.id===selected&&row.enabled&&featured.includes(row.id))))navigate('gallery',true);else if(selected){const row=rows.find(row=>row.id===selected);if(row)fillDetail(row);}

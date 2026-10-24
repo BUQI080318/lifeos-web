@@ -1,0 +1,14 @@
+{
+  "size": 65,
+  "input_log2_min": -16.0,
+  "input_log2_max": 6.0,
+  "view": {
+    "view": "AgX",
+    "look": "AgX - Medium High Contrast",
+    "exposure_stops": -0.05000000074505806
+  },
+  "generated_by": "Blender Image.save_render, scene-linear log2 lattice; no arbitrary grade",
+  "bytes": 1098500,
+  "sha256": "a056cd4b888f8352f1f2d119d94e4aa04d4cf2e5e6433a536b09d2fdadd3a830",
+  "runtime_layout": "RGBA8 3D texture: r fastest, then g, then b; output already display sRGB"
+}
