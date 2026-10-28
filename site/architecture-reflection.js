@@ -3,7 +3,7 @@ import {Reflector} from './vendor/three/addons/objects/Reflector.js';
 
 /** A real reflected camera, clipped at the floor; no screen-space decal. */
 export function createFloorReflection(renderer,scene,floor,emitters=[]){
- const mirror=new Reflector(new THREE.PlaneGeometry(1,1),{textureWidth:880,textureHeight:656,clipBias:.001,multisample:0});
+ const mirror=new Reflector(new THREE.PlaneGeometry(1,1),{textureWidth:2048,textureHeight:1527,clipBias:.001,multisample:0});
  mirror.rotation.x=-Math.PI/2;mirror.position.y=.001;mirror.updateMatrixWorld(true);
  mirror.getRenderTarget().texture.colorSpace=THREE.LinearSRGBColorSpace;
  const worldToReflection=new THREE.Matrix4();
@@ -37,7 +37,7 @@ export function createFloorReflection(renderer,scene,floor,emitters=[]){
   `);
  };
  floor.material.customProgramCacheKey=()=> 'v16-radiance-planar-floor';floor.material.needsUpdate=true;
- return {update(camera){
+ return {resize(width,height){mirror.getRenderTarget().setSize(width,height);},dispose(){mirror.dispose();mirror.geometry.dispose();emissionGroup.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});scene.remove(emissionGroup);},update(camera){
   const background=scene.background;
   scene.background=new THREE.Color().setRGB(.46*.18,.67*.18,.83*.18,THREE.LinearSRGBColorSpace);
   floor.visible=false;emissionGroup.visible=true;mirror.onBeforeRender(renderer,scene,camera);floor.visible=true;emissionGroup.visible=false;

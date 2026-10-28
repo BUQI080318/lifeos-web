@@ -1,5 +1,12 @@
 import {Vector3,Quaternion,Matrix4,CatmullRomCurve3} from './vendor/three/build/three.core.js';
 
+// rAF timestamps may precede an event's performance.now() within the same frame.
+// Quintic rounding near 1 must also never escape CatmullRom's valid [0, 1].
+export function smoothProgress(now,start,duration){
+ const t=duration>0?Math.max(0,Math.min(1,(now-start)/duration)):1;
+ return Math.max(0,Math.min(1,t*t*t*(t*(t*6-15)+10)));
+}
+
 /** Arc-length position + nonuniform quaternion Hermite, retaining all 3 poses. */
 export function createTour(metadata){
  const names=['Camera_Reference','Camera_advance-01','Camera_advance-02'];

@@ -1,4 +1,5 @@
 export const qualityPresets=Object.freeze({
+  ultra:{label:'极致',dpr:2,minDpr:1.5,samples:4,reflection:2048,maxPixels:8847360,shadow:4096,environment:512,normal:true,art:2048,memory:1536},
   high:{label:'高质量',dpr:1.75,shadow:2048,environment:256,normal:true,art:1536,memory:768},
   balanced:{label:'平衡',dpr:1.25,shadow:1024,environment:128,normal:true,art:1024,memory:512},
   low:{label:'低功耗',dpr:1,shadow:0,environment:64,normal:false,art:512,memory:384}

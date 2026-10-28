@@ -5,9 +5,13 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   const $=id=>document.getElementById(id),root=$('spatialExperience'),dialog=$('memoryDetail'),carrier=$('functionalSurface');
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let scene=null,scenePromise=null,userId=null,rows=[],featured=[],current='entrance',selected=null,serial=0,animation=null,animatedElement=null,surfaceName=null;
-  const scrollPositions={};let quality=matchMedia('(max-width:650px)').matches?'low':'balanced';
-  try{const saved=localStorage.getItem('lifeos-render-quality');if(qualityPresets[saved])quality=saved;}catch{}
+  const scrollPositions={};let quality='ultra';
+  try{const saved=localStorage.getItem('lifeos-render-quality-v2');if(qualityPresets[saved])quality=saved;}catch{}
   $('graphicsQuality').value=quality;
+  const viewSettings=document.querySelector('.view-settings');
+  function dismissSettings(event){if(!viewSettings?.open)return;if(event.type==='keydown'&&event.key==='Escape'){viewSettings.open=false;viewSettings.querySelector('summary').focus();}else if(event.type==='pointerdown'&&!viewSettings.contains(event.target))viewSettings.open=false;}
+  document.addEventListener('pointerdown',dismissSettings);document.addEventListener('keydown',dismissSettings);
+
   const headerObserver=new ResizeObserver(()=>{document.body.style.setProperty('--stage-top',document.querySelector('header').getBoundingClientRect().bottom+'px');});headerObserver.observe(document.querySelector('header'));
   let preferred='standard';try{preferred=localStorage.getItem('lifeos-spatial-mode')||'standard';}catch{}
   if(!['standard','immersive','reduced'].includes(preferred))preferred='standard';
@@ -20,13 +24,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   function project({anchors,signs,panels,camera,drawCalls,renderCount,...metrics}){
     root.dataset.drawCalls=String(drawCalls);root.dataset.renderCount=String(renderCount);root.dataset.camera=camera.map(n=>n.toFixed(2)).join(',');
     for(const [key,value] of Object.entries(metrics))root.dataset[key]=String(typeof value==='number'?Math.round(value*100)/100:value);
-    for(const [id,point] of Object.entries(anchors)){
-      const el=root.querySelector(`[data-anchor="${id}"]`);if(!el)continue;
-      const half=(el.offsetWidth||156)/2+16;
-      el.style.left=Math.max(half,Math.min(root.clientWidth-half,point.x))+'px';el.style.top=Math.max(220,Math.min(root.clientHeight-130,point.y))+'px';el.classList.remove('out-of-frame');
-    }
-    for(const sign of signs||[]){const button=root.querySelector(`[data-anchor="${sign.id}"]`);if(!button)continue;const matrix=surfaceTransform(sign.rect.points,320,104);if(matrix){button.style.left='0';button.style.top='0';button.style.transform=matrix;}button.classList.toggle('out-of-frame',!sign.visible);}
-    const placed=[];
+    // Entry controls stay in layout; only real exhibit bounds are projected.
     for(const panel of panels){const button=$('exhibitButtons').querySelector(`[data-memory-id="${panel.id}"]`);if(!button)continue;
       button.style.left=panel.rect.left+'px';button.style.top=panel.rect.top+'px';
       button.style.width=panel.rect.width+'px';button.style.height=panel.rect.height+'px';
@@ -37,9 +35,9 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   async function ensureScene(){
     if(scene)return scene;if(scenePromise)return scenePromise;
     if(root.dataset.renderer==='fallback')return null;
-    root.dataset.moving='false';$('renderStatus').textContent='正在下载建筑与完整光照资源，首次加载约 70 MB…';
+    root.dataset.moving='false';$('renderStatus').textContent='正在载入建筑…';
     scenePromise=import('./architecture-glb.js').then(async module=>{
-      let expired=false,timer;const pending=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));pending.then(value=>{if(expired)value.destroy();},()=>{});try{scene=await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(new Error('建筑加载超时'));},90000);})]);}finally{clearTimeout(timer);}scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';$('renderStatus').textContent='建筑已加载，可以选择入口。';return scene;
+      let expired=false,timer;const pending=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id));pending.then(value=>{if(expired)value.destroy();},()=>{});try{scene=await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(new Error('建筑加载超时'));},90000);})]);}finally{clearTimeout(timer);}scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';$('renderStatus').textContent='';return scene;
     }).catch(()=>{fallback();return null;});return scenePromise;
   }
   function render(){
@@ -55,7 +53,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     }
     $('galleryEmpty').hidden=current==='entrance'||visible.length>0;
     $('galleryEmptyText').textContent=!userId?'登录后，你主动选入的记忆会在这里展出。':!rows.length?'这里为你想留下的经历留着位置。第一条记忆，可以从今天开始。':'在「完整档案」中选择“加入长廊”，这里便会出现你的记忆。筛选条件也可能隐藏了已选展板。';
-    $('gallerySummary').textContent=userId?`${rows.length} 条云端记忆 · 本次展出 ${visible.length} 条`:'私人展览 · 登录后读取你的记忆';
+    $('gallerySummary').textContent=userId?`${rows.length} 条云端记忆 · 本次展出 ${visible.length} 条`:'登录后查看你的记忆';
     scene?.setMemories(visible);
   }
   function fillDetail(row){
@@ -142,7 +140,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   $('galleryRefresh').onclick=()=>onRefresh();
   for(const id of ['galleryYear','galleryCategory'])$(id).onchange=()=>{render();route('gallery');};
   $('spaceMode').onchange=()=>{preferred=$('spaceMode').value;try{localStorage.setItem('lifeos-spatial-mode',preferred);}catch{}scene?.setMode(effective());onMotion(effective()==='reduced');route(current,true);};
-  $('graphicsQuality').onchange=()=>{quality=$('graphicsQuality').value;try{localStorage.setItem('lifeos-render-quality',quality);}catch{}scene?.setQuality(quality);};
+  $('graphicsQuality').onchange=()=>{quality=$('graphicsQuality').value;try{localStorage.setItem('lifeos-render-quality-v2',quality);}catch{}scene?.setQuality(quality);};
   function reduction(){scene?.setMode(effective());onMotion(effective()==='reduced');route(current,true);}reduced.addEventListener('change',reduction);onMotion(effective()==='reduced');
   return {
     navigate,
@@ -154,6 +152,6 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       $('galleryYear').replaceChildren(new Option('所有年份',''),...years.map(y=>new Option(String(y),String(y))));$('galleryYear').value=years.includes(Number(year))?year:'';
       render();if((changed&&current.startsWith('memory/'))||(selected&&!rows.some(row=>row.id===selected&&row.enabled&&featured.includes(row.id))))navigate('gallery',true);else if(selected){const row=rows.find(row=>row.id===selected);if(row)fillDetail(row);}
     },
-    destroy(){serial++;stopAnimation();headerObserver.disconnect();if(dialog.open)dialog.close();scene?.destroy();scene=null;rows=[];featured=[];window.removeEventListener('hashchange',hashRoute);reduced.removeEventListener('change',reduction);}
+    destroy(){document.removeEventListener('pointerdown',dismissSettings);document.removeEventListener('keydown',dismissSettings);serial++;stopAnimation();headerObserver.disconnect();if(dialog.open)dialog.close();scene?.destroy();scene=null;rows=[];featured=[];window.removeEventListener('hashchange',hashRoute);reduced.removeEventListener('change',reduction);}
   };
 }
