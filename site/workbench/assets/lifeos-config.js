@@ -1,9 +1,8 @@
 window.LifeOSConfig=Object.freeze({
-  name:'LifeOS',subtitle:'个人成长操作系统',tagline:'让每一种成长，都有迹可循。',
+  name:'LifeOS',subtitle:'学习计划恢复与成长平台',tagline:'让每一种成长，都有迹可循。',
   storageKey:'lifeos_v1',legacyStorageKey:'suda_baoyan_v2',version:1,
-  routes:[['restart','重启计划'],['home','成长主页'],['goals','人生目标'],['archive','成长档案'],['planner','行动规划'],['resources','学习资料包'],['knowledge','我的资料库'],['programs','专项计划'],['reflection','成长回顾']],
+  routes:[['restart','重启计划'],['home','成长主页'],['goals','人生目标'],['archive','成长档案'],['planner','行动规划'],['resources','学习资料包'],['knowledge','我的资料库'],['programs','学习档案'],['reflection','成长回顾']],
   domains:['学业','职业','技能','创作','健康','生活','自定义'],
   recordTypes:['学习经历','技能提升','项目实践','竞赛经历','科研成果','创作作品','志愿服务','实习经历','个人里程碑'],
-  programs:[{id:'baoyan',name:'保研规划',description:'课程、成绩、推免加分、四年路线、复习资料与政策核验。',status:'available',tabs:[['overview','保研总览'],['courses','课程成绩'],['extras','加分台账'],['calc','达标测算'],['plan','四年路线'],['study','复习资料'],['rules','推免制度'],['data','保研数据']]},
-    {id:'postgraduate',name:'考研规划',status:'planned'},{id:'skill',name:'技能学习',status:'planned'},{id:'creation',name:'作品创作',status:'planned'},{id:'career',name:'职业发展',status:'planned'},{id:'competition',name:'竞赛准备',status:'planned'}]
+  programs:[{id:'baoyan',name:'学习档案',description:'管理课程记录、学习资料与个人成果。',status:'available',tabs:[['courses','课程记录'],['study','学习资料包'],['data','档案备份']]}]
 });
