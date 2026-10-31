@@ -1,7 +1,17 @@
 const message=document.getElementById('state');
 try {
-  if(parent===window || !parent.LifeOSWorkspaceSession)throw Error('请先从 LifeOS 登录入口进入工作台。');
-  const context=parent.LifeOSWorkspaceSession();
+  if(parent===window)throw Error('请先从 LifeOS 入口进入工作台。');
+  const isDemo=new URLSearchParams(location.search).get('demo')==='1';
+  window.LifeOSDemoOnly=isDemo;
+  let context;
+  if(isDemo){
+    // Demo data lives only in this frame's memory; it never reads the user's store.
+    const memory=new Map();
+    context={userId:'demo-'+crypto.randomUUID(),storage:{getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,String(value)),removeItem:key=>memory.delete(key)},assertActive(){}};
+  }else{
+    if(!parent.LifeOSWorkspaceSession)throw Error('请先登录 LifeOS。');
+    context=parent.LifeOSWorkspaceSession();
+  }
   const response=await fetch('/lifeos-web/workbench/source.html',{cache:'no-store'});
   if(!response.ok)throw Error('工作台资源尚未就绪，请刷新重试。');
   const source=await response.text();

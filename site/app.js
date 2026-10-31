@@ -12,7 +12,7 @@ let mode = 'login', recovering = false, sessionUser = null, locked = false, read
 let requestSerial = 0, authBusy = false, mailUntil = 0;
 let hydration = null;
 let editorGeneration = 0;
-let workbenchFrame=null;
+let workbenchFrame=null,demoRequested=false,workbenchDemo=false;
 let spatial=null,settings=null,exhibitionBusy=false;
 const requestedSpace=location.hash.match(/^#space\/(entrance|gallery|account|workbench|memory\/[\w-]+)$/)?.[1]||'entrance';
 const hashParams = new URLSearchParams(location.hash.slice(1));
@@ -49,8 +49,9 @@ function resetEditor() {
   $('cancelEdit').hidden = true; $('memoryTitle').textContent = '保存一条长期记忆';
 }
 function clearPrivate() {
-  if(workbenchFrame){workbenchFrame.remove();workbenchFrame=null;}
-  $('businessWorkspace').hidden=true;document.body.dataset.view='account';document.body.dataset.authenticated='false';
+  const keepDemo=demoRequested&&workbenchDemo&&!!workbenchFrame;
+  if(workbenchFrame&&!keepDemo){workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}
+  $('businessWorkspace').hidden=!keepDemo;document.body.dataset.view=keepDemo?'workbench':'account';document.body.dataset.authenticated='false';
   for(const id of ['openWorkbench','openAccount','topLogout'])$(id).hidden=true;
   profile = null; memories = []; settings=null; sessionUser = null; ready = false; requestSerial++;
   spatial?.setData(null);
@@ -67,8 +68,10 @@ function showAccount(){
   window.scrollTo(0,0);
 }
 function prepareWorkbench(){
-  if(!sessionUser || !ready || recovering || workbenchFrame)return;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.title='LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/';
+  if(workbenchFrame)return;
+  if((!sessionUser||!ready||recovering)&&!demoRequested)return;
+  workbenchDemo=demoRequested&&(!sessionUser||!ready||recovering);
+  workbenchFrame=document.createElement('iframe');workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/'+(workbenchDemo?'?demo=1':'');
   workbenchFrame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(workbenchFrame);
 }
 function showWorkbench(){
@@ -80,8 +83,11 @@ function showWorkbench(){
   workbenchFrame.contentWindow?.postMessage({type:'lifeos-motion',paused:userPaused},location.origin);
 }
 window.addEventListener('message',event=>{
-  if(event.origin===location.origin && event.source===workbenchFrame?.contentWindow && event.data?.type==='lifeos-workbench-ready')
-    workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);
+  if(event.origin!==location.origin||event.source!==workbenchFrame?.contentWindow)return;
+  if(event.data?.type==='lifeos-workbench-ready'){workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);if(demoRequested&&!workbenchDemo)workbenchFrame.contentWindow.postMessage({type:'lifeos-demo-start'},location.origin);}
+  if(event.data?.type==='lifeos-demo-active'){demoRequested=true;document.querySelector('.workspace-storage-note').hidden=true;}
+  if(event.data?.type==='lifeos-demo-finished'){demoRequested=false;document.querySelector('.workspace-storage-note').hidden=false;}
+  if(event.data?.type==='lifeos-demo-exit'){demoRequested=false;if(workbenchDemo){workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}spatial.navigate('entrance');}
 });
 window.LifeOSWorkspaceSession=()=>{
   if(!sessionUser || !ready || locked)throw Error('当前账户未就绪，请重新登录。');
@@ -89,6 +95,7 @@ window.LifeOSWorkspaceSession=()=>{
   return {userId:ticket.userId,storage:accountStorage(localStorage,ticket.userId,()=>fence.assert(ticket)),assertActive:()=>fence.assert(ticket)};
 };
 $('openWorkbench').onclick=()=>spatial.navigate('workbench');
+$('demoLaunch').onclick=()=>{demoRequested=true;if(workbenchFrame&&!workbenchDemo)workbenchFrame.contentWindow?.postMessage({type:'lifeos-demo-start'},location.origin);spatial.navigate('workbench');};
 $('openAccount').onclick=()=>spatial.navigate('account');
 function featuredIds(){return Array.isArray(settings?.settings?.exhibition_ids)?settings.settings.exhibition_ids.filter(id=>typeof id==='string'):[];}
 async function toggleExhibit(id,show){
@@ -157,7 +164,7 @@ async function loadWorkspace(ticket) {
 }
 async function applySession(session,event='') {
   if(locked)return;
-  if(!session?.user){fence.change(null);clearPrivate();$('auth').hidden=document.body.dataset.spatial==='true';return;}
+  if(!session?.user){fence.change(null);clearPrivate();$('auth').hidden=demoRequested||document.body.dataset.spatial==='true';return;}
   if(event==='PASSWORD_RECOVERY')recovering=true;
   if(hydration?.userId===session.user.id && fence.userId===session.user.id)return hydration.promise;
   if(fence.userId===session.user.id && sessionUser) {
@@ -174,11 +181,11 @@ async function applySession(session,event='') {
       sessionUser=verified.data.user;
       $('identity').textContent=sessionUser.email || '已登录账户';
       if(recovering){spatial.navigate('account',true);$('reset').hidden=false;tell('账户已验证，请设置密码。');return;}
-      $('workspace').hidden=false;
+      if(!demoRequested)$('workspace').hidden=false;
       await loadWorkspace(ticket);
-      spatial.navigate(requestedSpace,true);
+      if(!demoRequested)spatial.navigate(requestedSpace,true);
     }catch(error){
-      if(fence.valid(ticket)){tell(errorText(error),true);if(!sessionUser){$('auth').hidden=false;$('workspace').hidden=true;}}
+      if(fence.valid(ticket)){tell(errorText(error),true);if(!sessionUser&&!demoRequested){$('auth').hidden=false;$('workspace').hidden=true;}}
       throw error;
     }finally{if(hydration===pending)hydration=null;}
   })();
@@ -286,12 +293,13 @@ window.addEventListener('pagehide',event=>{if(!event.persisted)fluid?.destroy();
 window.addEventListener('offline',()=>tell('当前网络已断开。请保留未保存草稿，联网后核对云端数据。',true));
 
 spatial=createSpatialExperience({
-  onPrepare:view=>{if(view==='workbench')prepareWorkbench();},
+  onPrepare:view=>{if(view==='workbench')prepareWorkbench();else if(demoRequested){demoRequested=false;if(!workbenchDemo)workbenchFrame?.contentWindow?.postMessage({type:'lifeos-demo-stop'},location.origin);if(workbenchDemo&&workbenchFrame){workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}}},
   onView(view){
-    $('businessWorkspace').hidden=true;$('workspace').hidden=true;$('auth').hidden=true;
+    $('businessWorkspace').hidden=true;$('workspace').hidden=true;$('auth').hidden=true;document.querySelector('.workspace-storage-note').hidden=Boolean(demoRequested);
     if(fluid&&!fluid.paused)fluid.toggle();
     workbenchFrame?.contentWindow?.postMessage({type:'lifeos-motion',paused:true},location.origin);
     if(view==='spatial'){document.body.dataset.view='spatial';return;}
+    if(view==='workbench'&&demoRequested){prepareWorkbench();$('businessWorkspace').hidden=false;document.body.dataset.view='workbench';tell('当前为示例演示，与真实账户数据隔离。');return;}
     if(!sessionUser||!ready){document.body.dataset.view='account';$('auth').hidden=true; if(!recovering)$('auth').hidden=false;tell('请登录后打开你的个人空间。');return;}
     if(recovering){$('reset').hidden=false;return;}
     if(view==='workbench'){try{showWorkbench();}catch(error){tell(errorText(error),true);}}else showAccount();
@@ -319,4 +327,4 @@ async function start(){
   await applySession(data.session);
   if(!data.session)tell(incomingError?'验证链接未完成：'+incomingError:recovering?'链接已失效或未验证，请重新申请重置邮件。':'请登录，或创建你的账户。',Boolean(incomingError||recovering));
 }
-start().catch(error=>{cleanCallbackUrl(location,history);tell(errorText(error),true);$('auth').hidden=false;});
+start().catch(error=>{cleanCallbackUrl(location,history);tell(errorText(error),true);if(!demoRequested)$('auth').hidden=false;});
