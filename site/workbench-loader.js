@@ -12,7 +12,7 @@ try {
     if(!parent.LifeOSWorkspaceSession)throw Error('请先登录 LifeOS。');
     context=parent.LifeOSWorkspaceSession();
   }
-  const response=await fetch('/lifeos-web/workbench/source.html',{cache:'no-store'});
+  const response=await fetch('/lifeos-web/workbench/source.html',{cache:'no-store',signal:AbortSignal.timeout(45000)});
   if(!response.ok)throw Error('工作台资源尚未就绪，请刷新重试。');
   const source=await response.text();
   context.assertActive();
@@ -37,7 +37,7 @@ try {
     script.textContent=original.textContent;
     if(script.hasAttribute('src')){
       script.async=false;
-      await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(Error('工作台资源加载失败，请刷新重试。'));document.body.append(script);});
+      await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{script.remove();reject(Error('工作台资源加载超时，请检查网络并刷新重试。'));},45000);script.onload=()=>{clearTimeout(timer);resolve();};script.onerror=()=>{clearTimeout(timer);reject(Error('工作台资源加载失败，请刷新重试。'));};document.body.append(script);});
     }else document.body.append(script);
   }
   document.body.style.visibility='';document.body.removeAttribute('aria-busy');loading.remove();

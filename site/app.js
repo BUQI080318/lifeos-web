@@ -71,7 +71,7 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested&&(!sessionUser||!ready||recovering);
-  workbenchFrame=document.createElement('iframe');workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/'+(workbenchDemo?'?demo=1':'');
+  workbenchFrame=document.createElement('iframe');workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/?v=restart-20261031'+(workbenchDemo?'&demo=1':'');
   workbenchFrame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(workbenchFrame);
 }
 function showWorkbench(){
