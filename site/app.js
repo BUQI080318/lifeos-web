@@ -1,7 +1,7 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
 import {createLoadGate} from './workbench-loading.js';
-import {createSpatialExperience} from './cinematic.js?v=load-20261101';
+import {createSpatialExperience} from './cinematic.js?v=fullspace-20261101';
 
 const $ = id => document.getElementById(id);
 const cfg = window.LifeOSCloudConfig;
@@ -21,7 +21,7 @@ const incomingType = hashParams.get('type');
 const incomingError = hashParams.get('error_description') || new URLSearchParams(location.search).get('error_description');
 recovering = location.pathname.replace(/\/$/,'') === '/lifeos-web/auth/reset' || incomingType === 'recovery' || incomingType === 'invite';
 
-function tell(message,error=false) { $('notice').textContent = message; $('notice').dataset.error = String(error);if(error&&document.body.dataset.spatial==='true')$('renderStatus').textContent=message; }
+function tell(message,error=false) { $('notice').hidden = false; $('notice').textContent = message; $('notice').dataset.error = String(error);if(error&&document.body.dataset.spatial==='true')$('renderStatus').textContent=message; }
 function errorText(error) {
   const code = error?.code, message = error?.message || String(error);
   if (code === 'invalid_credentials') return '邮箱或密码不正确。受邀但未设置密码的账户请先使用“忘记密码”。';
@@ -47,7 +47,12 @@ function showMode(next) {
 function resetEditor() {
   editorGeneration++;
   editing = null; draftId = crypto.randomUUID(); $('memoryForm').reset();
-  $('cancelEdit').hidden = true; $('memoryTitle').textContent = '保存一条长期记忆';
+  $('cancelEdit').hidden = true; $('memoryTitle').textContent = '写一段记忆';
+}
+function openMemoryComposer() {
+  $('memoryComposer').open=true;
+  $('memoryForm').elements.content.focus({preventScroll:true});
+  $('memoryComposer').scrollIntoView({block:'nearest'});
 }
 function clearPrivate() {
   const keepDemo=demoRequested&&workbenchDemo&&!!workbenchFrame;
@@ -60,10 +65,11 @@ function clearPrivate() {
   $('identity').textContent = ''; $('count').textContent = ''; $('search').value = '';
   $('archiveYear').replaceChildren(new Option('所有年份',''));$('archiveCategory').value='';
   $('profileForm').reset(); $('resetForm').reset(); resetEditor();
+  $('profileDetails').open=false; $('memoryComposer').open=false;
 }
 function showAccount(){
   document.body.dataset.view='account';$('businessWorkspace').hidden=true;$('workspace').hidden=false;
-  tell('已打开完整档案。资料与记忆保存到当前账户。');
+  $('notice').hidden=true;
   if(fluid && !fluid.paused)fluid.toggle();
   workbenchFrame?.contentWindow?.postMessage({type:'lifeos-motion',paused:true},location.origin);
   window.scrollTo(0,0);
@@ -72,7 +78,7 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=recovery-20261101'+(workbenchDemo?'&demo=1':'');
+  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=fullspace-20261101'+(workbenchDemo?'&demo=1':'');
   const frame=workbenchFrame,loading=document.createElement('div'),label=document.createElement('p'),retry=document.createElement('button');loading.className='workbench-loading';label.setAttribute('role','status');retry.type='button';retry.textContent='重新加载工作台';retry.onclick=()=>workbenchLoadGate?.retry();loading.append(label,retry);
   frame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(frame,loading);workbenchLoadGate?.destroy();
   workbenchLoadGate=createLoadGate({onChange:state=>{loading.hidden=state.status==='ready';retry.hidden=!state.canRetry;label.textContent=state.canRetry?'工作台加载较慢。可以重试；未保存的输入请先保留。':'正在打开学习工作台…';},onRetry:()=>{if(frame!==workbenchFrame)return;frame.src=frame.src.split('&retry=')[0]+'&retry='+Date.now();}});
@@ -80,7 +86,7 @@ function prepareWorkbench(){
 function showWorkbench(){
   if(!sessionUser || !ready || recovering)throw Error('请先完成账户验证并读取数据。');
   $('workspace').hidden=true;$('businessWorkspace').hidden=false;document.body.dataset.view='workbench';
-  tell('已进入成长工作台。目标、课程、任务和文件目前保存在本设备；账户资料与长期记忆已连接云端。');
+  $('notice').hidden=true;
   if(fluid && !fluid.paused)fluid.toggle();
   prepareWorkbench();
   workbenchFrame.contentWindow?.postMessage({type:'lifeos-motion',paused:userPaused},location.origin);
@@ -88,8 +94,8 @@ function showWorkbench(){
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==workbenchFrame?.contentWindow)return;
   if(event.data?.type==='lifeos-workbench-ready'){workbenchLoadGate?.ready();workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);if(demoRequested&&!workbenchDemo)workbenchFrame.contentWindow.postMessage({type:'lifeos-demo-start'},location.origin);}
-  if(event.data?.type==='lifeos-demo-active'){demoRequested=true;document.querySelector('.workspace-storage-note').hidden=true;}
-  if(event.data?.type==='lifeos-demo-finished'){demoRequested=false;document.querySelector('.workspace-storage-note').hidden=false;}
+  if(event.data?.type==='lifeos-demo-active'){demoRequested=true;}
+  if(event.data?.type==='lifeos-demo-finished'){demoRequested=false;}
   if(event.data?.type==='lifeos-demo-exit'){demoRequested=false;if(workbenchDemo){workbenchLoadGate?.destroy();workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}spatial.navigate('entrance');}
 });
 window.LifeOSWorkspaceSession=()=>{
@@ -112,7 +118,7 @@ async function toggleExhibit(id,show){
   exhibitionBusy=true;
   const validIds=new Set(memories.filter(row=>row.enabled).map(row=>row.id));
   const current=settings?{...settings,settings:{...settings.settings,exhibition_ids:featuredIds().filter(value=>validIds.has(value))}}:null;
-  try{settings=await saveExhibition(client,fence,fence.ticket(),current,id,show);renderMemories();tell(show?'已加入私人长廊，其他设备刷新后也可读取。':'已从展览隐藏，原始记忆仍保留在完整档案中。');}
+  try{settings=await saveExhibition(client,fence,fence.ticket(),current,id,show);renderMemories();tell(show?'已加入私人长廊，其他设备刷新后也可读取。':'已从展览隐藏，原始记忆仍保留在「我的记忆」中。');}
   finally{exhibitionBusy=false;}
 }
 function renderMemories() {
@@ -148,10 +154,10 @@ function editMemory(row) {
   editing={...row}; const form=$('memoryForm');
   for(const key of ['category','content','source'])form.elements[key].value=row[key];
   form.elements.enabled.checked=row.enabled; form.elements.ai_allowed.checked=row.ai_allowed;
-  $('memoryTitle').textContent='编辑长期记忆'; $('cancelEdit').hidden=false;
-  form.elements.content.focus();
+  $('memoryTitle').textContent='编辑记忆'; $('cancelEdit').hidden=false;
+  openMemoryComposer();
 }
-async function loadWorkspace(ticket) {
+async function loadWorkspace(ticket,announce=true) {
   const serial=++requestSerial;
   const [result,rows,preferences] = await Promise.all([
     client.from('profiles').select('*').eq('user_id',ticket.userId).maybeSingle(),
@@ -165,7 +171,7 @@ async function loadWorkspace(ticket) {
   profile=result.data; memories=rows; settings=preferences.data; ready=true;
   $('profileForm').elements.display_name.value=profile?.display_name || '';
   $('profileForm').elements.bio.value=profile?.bio || '';
-  renderMemories(); tell('云端数据已读取。此页的资料和记忆直接保存到当前账户。');
+  renderMemories(); if(announce)tell('云端数据已读取。');else $('notice').hidden=true;
   for(const id of ['openWorkbench','openAccount','topLogout'])$(id).hidden=false;
   document.body.dataset.authenticated='true';
 }
@@ -189,7 +195,7 @@ async function applySession(session,event='') {
       $('identity').textContent=sessionUser.email || '已登录账户';
       if(recovering){spatial.navigate('account',true);$('reset').hidden=false;tell('账户已验证，请设置密码。');return;}
       if(!demoRequested)$('workspace').hidden=false;
-      await loadWorkspace(ticket);
+      await loadWorkspace(ticket,false);
       if(!demoRequested)spatial.navigate(requestedSpace,true);
     }catch(error){
       if(fence.valid(ticket)){tell(errorText(error),true);if(!sessionUser&&!demoRequested){$('auth').hidden=false;$('workspace').hidden=true;}}
@@ -268,11 +274,11 @@ $('memoryForm').onsubmit=event=>{event.preventDefault();run(event.submitter,asyn
   memories=memories.filter(item=>item.id!==row.id);memories.push(row);
   if(editorAtSubmit===editorGeneration){
     if(JSON.stringify(readDraft())===submittedDraft)resetEditor();
-    else {editing={...row};$('memoryTitle').textContent='编辑长期记忆';$('cancelEdit').hidden=false;}
+    else {editing={...row};$('memoryTitle').textContent='编辑记忆';$('cancelEdit').hidden=false;}
   }
   renderMemories();tell('提交的内容已保存到云端。保存期间新输入的草稿会保留，请再次保存。');
 });};
-$('cancelEdit').onclick=resetEditor;$('search').oninput=renderMemories;
+$('cancelEdit').onclick=resetEditor;$('newMemory').onclick=openMemoryComposer;$('search').oninput=renderMemories;
 $('archiveYear').onchange=renderMemories;$('archiveCategory').onchange=renderMemories;
 $('refresh').onclick=()=>run($('refresh'),async()=>{
   if(!confirm('刷新将重新载入个人资料。未保存的记忆草稿仍保留；请先复制尚未保存的个人资料。'))return;
@@ -302,17 +308,17 @@ window.addEventListener('offline',()=>tell('当前网络已断开。请保留未
 spatial=createSpatialExperience({
   onPrepare:view=>{if(view==='workbench')prepareWorkbench();else if(demoRequested){demoRequested=false;if(!workbenchDemo)workbenchFrame?.contentWindow?.postMessage({type:'lifeos-demo-stop'},location.origin);if(workbenchDemo&&workbenchFrame){workbenchLoadGate?.destroy();workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}}},
   onView(view){
-    $('businessWorkspace').hidden=true;$('workspace').hidden=true;$('auth').hidden=true;document.querySelector('.workspace-storage-note').hidden=Boolean(demoRequested);
+    $('businessWorkspace').hidden=true;$('workspace').hidden=true;$('auth').hidden=true;
     if(fluid&&!fluid.paused)fluid.toggle();
     workbenchFrame?.contentWindow?.postMessage({type:'lifeos-motion',paused:true},location.origin);
     if(view==='spatial'){document.body.dataset.view='spatial';return;}
-    if(view==='workbench'&&demoRequested){prepareWorkbench();$('businessWorkspace').hidden=false;document.body.dataset.view='workbench';tell('当前为示例演示，与真实账户数据隔离。');return;}
+    if(view==='workbench'&&demoRequested){prepareWorkbench();$('businessWorkspace').hidden=false;document.body.dataset.view='workbench';$('notice').hidden=true;return;}
     if(!sessionUser||!ready){document.body.dataset.view='account';$('auth').hidden=true; if(!recovering)$('auth').hidden=false;tell('请登录后打开你的个人空间。');return;}
     if(recovering){$('reset').hidden=false;return;}
     if(view==='workbench'){try{showWorkbench();}catch(error){tell(errorText(error),true);}}else showAccount();
   },
   onEdit:row=>{if(ready&&row.user_id===fence.userId)editMemory(row);},
-  onReflect:row=>{if(!ready||row.user_id!==fence.userId)return;resetEditor();const form=$('memoryForm');form.elements.category.value='reflection';form.elements.source.value='reflection:'+row.id;form.elements.content.focus();},
+  onReflect:row=>{if(!ready||row.user_id!==fence.userId)return;resetEditor();const form=$('memoryForm');form.elements.category.value='reflection';form.elements.source.value='reflection:'+row.id;openMemoryComposer();},
   onExhibit:toggleExhibit,
   onRefresh:()=>run($('galleryRefresh'),async()=>{if(!ready)throw Error('请先登录。');await loadWorkspace(fence.ticket());}),
   onMotion:paused=>{userPaused=paused;if(paused&&fluid&&!fluid.paused)fluid.toggle();workbenchFrame?.contentWindow?.postMessage({type:'lifeos-motion',paused},location.origin);$('motion').setAttribute('aria-pressed',String(paused));$('motion').textContent=paused?'恢复背景':'暂停背景';},

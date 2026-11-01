@@ -75,7 +75,7 @@ export async function saveExhibition(client,fence,ticket,current,id,show){
   if(current&&current.user_id!==ticket.userId)throw Error('展览设置的账户不匹配。');
   const previous=Array.isArray(current?.settings?.exhibition_ids)?current.settings.exhibition_ids:[];
   const ids=[...new Set(previous.filter(value=>typeof value==='string'&&value!==id))];
-  if(show){if(ids.length>=8)throw Error('长廊最多精选 8 条，请先移出一条；完整档案不会受影响。');ids.push(id);}
+  if(show){if(ids.length>=8)throw Error('长廊最多精选 8 条，请先移出一条；我的记忆不会受影响。');ids.push(id);}
   const settings={...(current?.settings||{}),exhibition_ids:ids};
   const query=current?client.from('user_settings').update({settings}).eq('user_id',ticket.userId).eq('revision',current.revision):client.from('user_settings').insert({user_id:ticket.userId,settings});
   const {data,error}=await query.select('*');fence.assert(ticket);if(error)throw error;

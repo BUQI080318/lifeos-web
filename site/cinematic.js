@@ -4,7 +4,8 @@ import {surfaceTransform,qualityPresets} from './spatial-config.js';
 export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRefresh,onError,onMotion=()=>{},onPrepare=()=>{}}){
   const $=id=>document.getElementById(id),root=$('spatialExperience'),dialog=$('memoryDetail'),carrier=$('functionalSurface');
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-  let scene=null,scenePromise=null,userId=null,rows=[],featured=[],current='entrance',selected=null,serial=0,animation=null,animatedElement=null,surfaceName=null;
+  let scene=null,scenePromise=null,userId=null,rows=[],featured=[],current='entrance',selected=null,serial=0,animation=null,animatedElement=null,surfaceName=null,galleryReady=false;
+  let galleryState={index:-1,total:0,activeId:null,busy:false};
   const scrollPositions={};let quality='ultra';
   try{const saved=localStorage.getItem('lifeos-render-quality-v2');if(qualityPresets[saved])quality=saved;}catch{}
   $('graphicsQuality').value=quality;
@@ -21,7 +22,18 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     const year=$('galleryYear').value,category=$('galleryCategory').value;
     return rows.filter(row=>row.user_id===userId&&row.enabled&&featured.includes(row.id)&&(!year||String(new Date(row.created_at).getFullYear())===year)&&(!category||row.category===category)).slice(0,8);
   }
-  function project({anchors,signs,panels,camera,drawCalls,renderCount,...metrics}){
+  function updateGalleryControls(){
+    const browser=$('galleryBrowser');if(!browser)return;
+    browser.hidden=!galleryReady||current!=='gallery'||galleryState.total===0||root.dataset.renderer==='fallback';
+    $('galleryPosition').textContent=galleryState.total?`${galleryState.index+1} / ${galleryState.total}`:'0 / 0';
+    $('galleryPrevious').disabled=galleryState.index<=0;
+    $('galleryNext').disabled=galleryState.index<0||galleryState.index>=galleryState.total-1;
+    $('galleryRead').disabled=!galleryState.activeId||galleryState.busy;
+    root.dataset.galleryIndex=String(galleryState.index);root.dataset.galleryTotal=String(galleryState.total);root.dataset.galleryBusy=String(galleryState.busy);
+    for(const button of $('exhibitButtons').querySelectorAll('[data-memory-id]'))button.disabled=root.dataset.renderer!=='fallback'&&(!galleryReady||galleryState.busy||button.dataset.memoryId!==galleryState.activeId);
+  }
+  function project({anchors,signs,panels,camera,drawCalls,renderCount,gallery,...metrics}){
+    if(gallery)galleryState=gallery;updateGalleryControls();
     root.dataset.drawCalls=String(drawCalls);root.dataset.renderCount=String(renderCount);root.dataset.camera=camera.map(n=>n.toFixed(2)).join(',');
     for(const [key,value] of Object.entries(metrics))root.dataset[key]=String(typeof value==='number'?Math.round(value*100)/100:value);
     // Entry controls stay in layout; only real exhibit bounds are projected.
@@ -36,7 +48,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     if(scene)return scene;if(scenePromise)return scenePromise;
     if(root.dataset.renderer==='fallback')return null;
     root.dataset.moving='false';$('renderStatus').textContent='正在载入建筑…';
-    const loadingStarted=performance.now();scenePromise=import('./architecture-glb.js?v=load-20261101').then(async module=>{
+    const loadingStarted=performance.now();scenePromise=import('./architecture-glb.js?v=fullspace-20261101').then(async module=>{
       let expired=false,timer;const pending=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id),progress=>{if(scene||root.dataset.renderer==='fallback')return;if(progress.phase==='download'){$('renderStatus').textContent=`正在下载建筑 ${Math.min(100,Math.floor(progress.loaded/progress.total*100))}%（${(progress.loaded/1048576).toFixed(1)} / ${(progress.total/1048576).toFixed(1)} MB）`;root.dataset.assetBytes=String(progress.total);}else if(progress.phase==='decode'){root.dataset.backgroundDecode=String(progress.background);$('renderStatus').textContent='正在解码建筑资源…';}else $('renderStatus').textContent=progress.phase==='lighting'?'正在还原建筑光照…':'正在准备建筑画面…';});pending.then(value=>{if(expired)value.destroy();},()=>{});try{scene=await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(new Error('建筑加载超时'));},90000);})]);}finally{clearTimeout(timer);}scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';root.dataset.loadMs=String(Math.round(performance.now()-loadingStarted));$('renderStatus').textContent='';return scene;
     }).catch(()=>{fallback();return null;});return scenePromise;
   }
@@ -52,9 +64,9 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       $('exhibitButtons').append(button);
     }
     $('galleryEmpty').hidden=current==='entrance'||visible.length>0;
-    $('galleryEmptyText').textContent=!userId?'登录后，你主动选入的记忆会在这里展出。':!rows.length?'这里为你想留下的经历留着位置。第一条记忆，可以从今天开始。':'在「完整档案」中选择“加入长廊”，这里便会出现你的记忆。筛选条件也可能隐藏了已选展板。';
+    $('galleryEmptyText').textContent=!userId?'登录后，你主动选入的记忆会在这里展出。':!rows.length?'这里为你想留下的经历留着位置。第一条记忆，可以从今天开始。':'在「我的记忆」中选择“加入长廊”，这里便会出现你的记忆。筛选条件也可能隐藏了已选作品。';
     $('gallerySummary').textContent=userId?`${rows.length} 条云端记忆 · 本次展出 ${visible.length} 条`:'登录后查看你的记忆';
-    scene?.setMemories(visible);
+    scene?.setMemories(visible);updateGalleryControls();
   }
   function fillDetail(row){
     $('detailStatus').textContent='';
@@ -86,7 +98,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     dialog.close();dialog.style.transform='none';if(!animate)scene?.hidePanel(id,false);selected=null;
   }
   async function route(next,instant=false){
-    const mine=++serial,returnId=selected;stopAnimation();scene?.cancel();
+    const mine=++serial,returnId=selected;galleryReady=false;updateGalleryControls();stopAnimation();scene?.cancel();
     if(dialog.open)await closeDetail(!instant);
     if(mine!==serial)return;
     current=next;root.dataset.target=next;root.dataset.moving='true';root.dataset.transition='travelling';root.hidden=false;
@@ -118,10 +130,20 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       await actualScene?.go(next,instant);if(mine!==serial)return;
       if(next==='account'||next==='workbench'){
         document.body.dataset.surface=next;document.body.dataset.spatial='false';carrier.hidden=false;onView(next);surfaceName=next;carrier.scrollTop=scrollPositions[next]||0;root.dataset.transition='unfolding';
-        await animateCarrier(carrier,actualScene?.surfaceRect(next),false,instant);if(mine!==serial)return;actualScene?.hideSurface(next,true);carrier.inert=false;
+        await animateCarrier(carrier,actualScene?.surfaceRect(next),false,instant);if(mine!==serial)return;actualScene?.hideSurface(next,true);carrier.inert=false;actualScene?.setActive(false);
       }
     }
-    if(mine===serial){root.dataset.moving='false';root.dataset.transition='stable';root.removeAttribute('aria-busy');$('spaceNarration').textContent=next==='entrance'?'已抵达入口':next==='gallery'?'已抵达记忆长廊':next==='account'?'已抵达完整档案':next==='workbench'?'已抵达成长工作台':'记忆详情已展开';if(next==='gallery'&&returnId)$('exhibitButtons').querySelector(`[data-memory-id="${returnId}"]`)?.focus({preventScroll:true});}
+    if(mine===serial){galleryReady=next==='gallery';updateGalleryControls();root.dataset.moving='false';root.dataset.transition='stable';root.removeAttribute('aria-busy');$('spaceNarration').textContent=next==='entrance'?'已抵达入口':next==='gallery'?'已抵达记忆长廊':next==='account'?'已抵达我的记忆':next==='workbench'?'已抵达学习工作台':'记忆详情已展开';if(next==='gallery'&&returnId)$('exhibitButtons').querySelector(`[data-memory-id="${returnId}"]`)?.focus({preventScroll:true});}
+  }
+  async function stepGallery(delta){
+    if(current!=='gallery'||!galleryReady||dialog.open||!scene?.galleryStep)return;
+    const mine=++serial;scene.setActive(true);root.dataset.moving='true';root.setAttribute('aria-busy','true');
+    try{await scene.galleryStep(delta);}catch(error){onError(error.message);}
+    finally{if(mine===serial){root.dataset.moving='false';root.removeAttribute('aria-busy');updateGalleryControls();}}
+  }
+  function galleryKeyboard(event){
+    if(current!=='gallery'||dialog.open||viewSettings?.open||$('galleryTools')?.open||event.target.closest?.('input,textarea,select,[contenteditable]'))return;
+    if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();stepGallery(event.key==='ArrowLeft'?-1:1);}
   }
   function navigate(next,replace=false){
     const path='#space/'+next;
@@ -138,6 +160,9 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
   $('detailReflect').onclick=()=>openEditor(onReflect);
   $('detailHide').onclick=async()=>{const id=selected;const button=$('detailHide');button.disabled=true;try{await onExhibit(id,false);navigate('gallery');}catch(error){$('detailStatus').textContent=error.message;onError(error.message);}finally{button.disabled=false;}};
   $('galleryRefresh').onclick=()=>onRefresh();
+  $('galleryPrevious').onclick=()=>stepGallery(-1);$('galleryNext').onclick=()=>stepGallery(1);
+  $('galleryRead').onclick=()=>{if(galleryReady&&!galleryState.busy&&galleryState.activeId)navigate('memory/'+galleryState.activeId);};
+  document.addEventListener('keydown',galleryKeyboard);
   for(const id of ['galleryYear','galleryCategory'])$(id).onchange=()=>{render();route('gallery');};
   $('spaceMode').onchange=()=>{preferred=$('spaceMode').value;try{localStorage.setItem('lifeos-spatial-mode',preferred);}catch{}scene?.setMode(effective());onMotion(effective()==='reduced');route(current,true);};
   $('graphicsQuality').onchange=()=>{quality=$('graphicsQuality').value;try{localStorage.setItem('lifeos-render-quality-v2',quality);}catch{}scene?.setQuality(quality);};
@@ -147,11 +172,11 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     start(initial){route(initial||'entrance',true);},
     setData(data){
       const changed=userId!==(data?.userId||null);userId=data?.userId||null;rows=data?.rows||[];featured=data?.featured||[];
-      if(changed){if(selected)serial++;stopAnimation();if(dialog.open)dialog.close();dialog.style.transform='none';dialog.querySelector('.shared-memory-image')?.remove();for(const id of ['detailTitle','detailContent','detailMeta','detailSource','detailPrivacy','detailReflections','detailStatus'])$(id).replaceChildren();selected=null;scene?.setMemories([]);$('galleryYear').value='';$('galleryCategory').value='';}
+      if(changed){if(selected)serial++;stopAnimation();if(dialog.open)dialog.close();dialog.style.transform='none';dialog.querySelector('.shared-memory-image')?.remove();for(const id of ['detailTitle','detailContent','detailMeta','detailSource','detailPrivacy','detailReflections','detailStatus'])$(id).replaceChildren();selected=null;galleryState={index:-1,total:0,activeId:null,busy:false};scene?.setMemories([]);$('galleryYear').value='';$('galleryCategory').value='';}
       const years=[...new Set(rows.map(row=>new Date(row.created_at).getFullYear()))].sort((a,b)=>b-a);const year=$('galleryYear').value;
       $('galleryYear').replaceChildren(new Option('所有年份',''),...years.map(y=>new Option(String(y),String(y))));$('galleryYear').value=years.includes(Number(year))?year:'';
       render();if((changed&&current.startsWith('memory/'))||(selected&&!rows.some(row=>row.id===selected&&row.enabled&&featured.includes(row.id))))navigate('gallery',true);else if(selected){const row=rows.find(row=>row.id===selected);if(row)fillDetail(row);}
     },
-    destroy(){document.removeEventListener('pointerdown',dismissSettings);document.removeEventListener('keydown',dismissSettings);serial++;stopAnimation();headerObserver.disconnect();if(dialog.open)dialog.close();scene?.destroy();scene=null;rows=[];featured=[];window.removeEventListener('hashchange',hashRoute);reduced.removeEventListener('change',reduction);}
+    destroy(){document.removeEventListener('pointerdown',dismissSettings);document.removeEventListener('keydown',dismissSettings);document.removeEventListener('keydown',galleryKeyboard);serial++;stopAnimation();headerObserver.disconnect();if(dialog.open)dialog.close();scene?.destroy();scene=null;rows=[];featured=[];window.removeEventListener('hashchange',hashRoute);reduced.removeEventListener('change',reduction);}
   };
 }

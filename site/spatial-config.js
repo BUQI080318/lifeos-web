@@ -6,8 +6,8 @@ export const qualityPresets=Object.freeze({
 });
 export function transitionProgress(now,start,duration){return duration>0?Math.max(0,Math.min(1,(now-start)/duration)):1;}
 export const surfaces=Object.freeze({
-  account:{position:[-3.7,2.45,-12],yaw:.3,width:3.8,height:2.3,title:'完整记忆档案',subtitle:'查找、整理，留住真实的经历'},
-  workbench:{position:[3.5,2.2,0],yaw:-.38,width:4,height:2.35,title:'成长工作台',subtitle:'学习、规划，与正在发生的成长'}
+  account:{position:[-3.7,2.45,-12],yaw:.3,width:3.8,height:2.3,title:'我的记忆',subtitle:'查找、整理，留住真实的经历'},
+  workbench:{position:[3.5,2.2,0],yaw:-.38,width:4,height:2.35,title:'学习工作台',subtitle:'学习、规划，与正在发生的成长'}
 });
 export function cameraPose(name,compact=false){
   if(surfaces[name]){const s=surfaces[name],distance=compact?10:4.8;return {position:s.position.map((v,i)=>v+(i===0?Math.sin(s.yaw)*distance:i===2?Math.cos(s.yaw)*distance:0)),target:[...s.position]};}

@@ -1,5 +1,5 @@
 /* Restart workspace: quiet navigation, luminous architectural depth. */
-.rs-workspace{--rs-ink:#e2f0ef;--rs-dim:#9aafba;--rs-line:rgba(159,200,207,.17);--rs-accent:#8ad6cb;--rs-panel:rgba(10,31,46,.82);max-width:1440px;margin:0 auto;padding:clamp(18px,3vw,42px);color:var(--rs-ink);font-family:Inter,"Microsoft YaHei",sans-serif;font-size:14px;line-height:1.6}
+.rs-workspace{--rs-ink:#e2f0ef;--rs-dim:#9aafba;--rs-line:rgba(159,200,207,.17);--rs-accent:#8ad6cb;--rs-panel:rgba(10,31,46,.82);width:100%;max-width:none;min-height:100svh;margin:0;padding:clamp(18px,3vw,42px);color:var(--rs-ink);font-family:Inter,"Microsoft YaHei",sans-serif;font-size:14px;line-height:1.6}
 .rs-workspace *{box-sizing:border-box}
 .rs-workspace h1,.rs-workspace h2,.rs-workspace h3,.rs-workspace p{margin:0}
 .rs-workspace h1{font-family:"Noto Serif SC","Songti SC",SimSun,serif;font-size:clamp(29px,3.2vw,46px);font-weight:400;line-height:1.4;letter-spacing:.035em}

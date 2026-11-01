@@ -11,7 +11,7 @@ body[data-spatial=true] #functionalSurface{display:none!important}
 header,body[data-view=workbench] header,body[data-spatial=true] header{padding:12px 0;gap:20px}
 header:after{background:linear-gradient(90deg,#a3bacd12,transparent 80%)}
 header .brand{margin-right:auto;font-size:23px;font-weight:450;letter-spacing:.015em}
-header .space-nav{margin-left:0;gap:10px}
+header .space-nav{margin-left:0;gap:10px;min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:thin}header .space-nav button{flex:none;white-space:nowrap}
 header .space-nav button{color:#b3c6cf;font-size:12px;padding:10px 12px;min-height:44px}
 header .space-nav button:hover{color:#edf6f4;background:transparent}
 header .space-nav [aria-current=page]{color:#e3efed;box-shadow:inset 0 -1px #91bcb999}
@@ -30,7 +30,7 @@ header .actions button{min-height:44px}
 /* Leave the center and floor unobstructed. */
 .space-caption{max-width:370px}
 .space-caption h1{font-size:clamp(30px,3.05vw,44px);line-height:1.6;letter-spacing:.045em;margin:0;color:#d9e8e5;font-weight:400}
-.space-caption#galleryCaption{top:5%;max-width:320px}
+.space-caption#galleryCaption{top:22px;left:5vw;width:calc(100% - 170px);max-width:320px}
 .space-caption h2{font-size:25px;letter-spacing:.04em;margin:0 0 7px}
 #gallerySummary{font-size:11px;line-height:1.7;color:#a8bfc8}
 #entrancePortals,#spatialExperience[data-renderer=loading] #entrancePortals{position:absolute;inset:auto 5vw 76px;display:flex;gap:clamp(20px,3vw,52px);justify-content:center;align-items:center;height:auto;flex-wrap:nowrap;pointer-events:none}
@@ -44,9 +44,22 @@ header .actions button{min-height:44px}
 .space-bottom #renderStatus{max-width:580px;color:#afc3cd;font-size:11px;line-height:1.7;margin:0}
 .space-bottom #renderStatus:empty{display:none}
 .space-bottom #renderStatus a{pointer-events:auto}
-#galleryTools{border:0;padding:10px 12px;background:#081a26df;gap:10px}
-#galleryTools label{font-size:11px;color:#adc3cd}
-#galleryTools select,#galleryTools button{min-height:36px;border-radius:2px;font-size:12px}
+#galleryTools{position:absolute;top:22px;right:5vw;bottom:auto;left:auto;z-index:5;display:block;width:auto;max-width:90vw;margin:0;padding:0;border:0;border-radius:0;background:transparent}
+#galleryTools summary{display:flex;align-items:center;min-height:44px;padding:8px 12px;list-style:none;cursor:pointer;color:#adc3cd;font-size:12px;background:#081a26df}
+#galleryTools summary::-webkit-details-marker{display:none}
+#galleryTools summary:after{content:'⌄';margin-left:10px;color:#8ad6cb}
+#galleryTools[open] summary:after{content:'⌃'}
+#galleryTools .gallery-filter-fields{position:absolute;top:calc(100% + 8px);right:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:min(430px,90vw);max-height:calc(100dvh - var(--stage-top) - 160px);overflow:auto;padding:16px;background:#081a26f5;border:1px solid #8ca5b730}
+#galleryTools:not([open]) .gallery-filter-fields{display:none}
+#galleryTools label{display:grid;gap:6px;margin:0;font-size:11px;color:#adc3cd;min-width:0}
+#galleryTools select,#galleryTools button{width:100%;max-width:none;min-height:40px;border-radius:2px;border-color:#8ca5b730;background:#0a1f2dcc;font-size:12px}
+#galleryBrowser{position:absolute;left:50%;right:auto;bottom:26px;z-index:4;display:flex;align-items:center;justify-content:center;gap:8px;width:max-content;max-width:90%;min-height:54px;padding:5px 10px;transform:translateX(-50%);background:#081a26e8}
+#galleryBrowser button{flex:none;min-height:44px;padding:8px 12px;border:0;border-radius:0;background:transparent;font-size:12px;white-space:nowrap}
+#galleryBrowser button:hover{background:#163747}
+#galleryBrowser button:disabled{opacity:.45;cursor:default}
+#galleryBrowser #galleryRead{color:#d9e8e5}
+#galleryPosition{min-width:50px;text-align:center;font-size:11px;color:#a8bfc8;white-space:nowrap}
+#spatialExperience[data-state=gallery] .space-bottom,#spatialExperience[data-state=detail] .space-bottom{bottom:94px}
 
 /* Hit areas follow the actual framed exhibits; no duplicate floating labels. */
 #spatialExperience[data-renderer=webgl] .exhibit-button{transform:none;background:transparent;border:0;box-shadow:none;padding:0;max-width:none;min-width:0;color:transparent}
@@ -60,6 +73,11 @@ header .actions button{min-height:44px}
 /* Keep the no-WebGL route usable without trapping text below the viewport. */
 #spatialExperience[data-renderer=fallback] #entrancePortals{position:relative;inset:auto;justify-content:flex-start;flex-wrap:wrap;margin:28px 0;gap:16px 28px}
 #spatialExperience[data-renderer=fallback] #entrancePortals .space-portal{height:auto;min-height:44px}
+
+#spatialExperience[data-renderer=fallback] #galleryTools{position:relative;inset:auto;display:block;width:100%;max-width:100%;margin:22px 0}
+#spatialExperience[data-renderer=fallback] #galleryTools summary{width:max-content}
+#spatialExperience[data-renderer=fallback] #galleryTools .gallery-filter-fields{position:static;width:100%;max-height:none;margin-top:8px}
+#spatialExperience[data-renderer=fallback] #galleryBrowser{position:relative;inset:auto;width:max-content;max-width:100%;margin:22px auto;transform:none}
 
 @media(max-width:1000px){
   header,body[data-view=workbench] header,body[data-spatial=true] header{padding:10px 0;gap:6px 18px}
@@ -77,16 +95,21 @@ header .actions button{min-height:44px}
   .view-settings-panel{width:216px;max-width:calc(100vw - 32px)}
   .space-caption{left:6vw;top:8%;max-width:85vw}
   .space-caption h1{font-size:30px;line-height:1.6}
-  .space-caption#galleryCaption{top:5%}
+  .space-caption#galleryCaption{top:18px;left:6vw;width:calc(100% - 152px)}
   .space-caption h2{font-size:23px}
   #entrancePortals,#spatialExperience[data-renderer=loading] #entrancePortals{inset:auto 6vw 84px;gap:18px;justify-content:space-between}
   #entrancePortals .space-portal{flex:0 1 auto;height:48px;padding:8px 0}
   #entrancePortals .space-portal strong{font-size:12px;letter-spacing:0;white-space:nowrap}
   .space-bottom{left:6vw;right:6vw;bottom:18px}
   .space-bottom #renderStatus{font-size:10px;max-width:100%}
-  #galleryTools{top:108px;left:6vw;right:6vw;gap:8px}
-  #galleryTools label{flex-direction:column;align-items:stretch;gap:4px;white-space:nowrap;min-width:0}
-  #galleryTools select,#galleryTools button{min-height:40px}
+  #galleryTools{top:18px;right:6vw;left:auto;max-width:88vw}
+  #galleryTools summary{padding:8px 10px;font-size:11px}
+  #galleryTools .gallery-filter-fields{width:88vw;gap:10px;padding:14px;max-height:calc(100dvh - var(--stage-top) - 150px)}
+  #galleryTools label{gap:5px}
+  #galleryBrowser{left:6vw;right:6vw;bottom:18px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.6fr) minmax(0,1fr);gap:4px;width:auto;max-width:none;min-height:52px;padding:4px 6px;transform:none}
+  #galleryBrowser button{min-width:0;padding:8px 5px;font-size:11px}
+  #galleryPosition{min-width:36px;font-size:10px}
+  #spatialExperience[data-state=gallery] .space-bottom,#spatialExperience[data-state=detail] .space-bottom{bottom:88px}
 }
 @media(max-height:550px) and (min-width:651px){
   .space-caption{top:7%}

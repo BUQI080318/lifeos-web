@@ -4,22 +4,22 @@
   <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob: https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>LifeOS — 个人成长操作系统</title>
-  <link rel="stylesheet" href="/lifeos-web/cloud.css?v=recovery-20261101b">
-  <link rel="stylesheet" href="/lifeos-web/cinematic.css">
-  <link rel="stylesheet" href="/lifeos-web/render-upgrade.css">
-  <link rel="modulepreload" href="/lifeos-web/architecture-glb.js?v=load-20261101">
+  <link rel="stylesheet" href="/lifeos-web/cloud.css?v=fullspace-20261101">
+  <link rel="stylesheet" href="/lifeos-web/cinematic.css?v=fullspace-20261101">
+  <link rel="stylesheet" href="/lifeos-web/render-upgrade.css?v=fullspace-20261101">
+  <link rel="modulepreload" href="/lifeos-web/architecture-glb.js?v=fullspace-20261101">
   <link rel="preload" as="fetch" href="/lifeos-web/assets/architecture/building.glb.gz" crossorigin>
   <link rel="preload" as="fetch" href="/lifeos-web/assets/architecture/v16-concrete-diffuse.rgbe.gz" crossorigin>
   <script defer src="/lifeos-web/vendor/supabase.js"></script>
   <script defer src="/lifeos-web/config.js"></script>
   <script defer src="/lifeos-web/fluid-renderer.js"></script>
-  <script type="module" src="/lifeos-web/app.js?v=recovery-20261101b"></script>
-<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css"></head>
+  <script type="module" src="/lifeos-web/app.js?v=fullspace-20261101"></script>
+<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css?v=fullspace-20261101"></head>
 <body data-spatial="true">
   <canvas id="fluid" aria-hidden="true"></canvas>
   <header>
     <a class="brand" href="/lifeos-web/#space/entrance" aria-label="LifeOS 入口">LifeOS</a>
-    <nav class="space-nav" aria-label="空间导航"><button type="button" data-space-nav="entrance">入口</button><button type="button" data-space-nav="gallery">记忆长廊</button><button type="button" data-space-nav="workbench">重启计划</button><button type="button" data-space-nav="account">完整档案</button></nav>
+    <nav class="space-nav" aria-label="空间导航"><button type="button" data-space-nav="entrance">入口</button><button type="button" data-space-nav="gallery">记忆长廊</button><button type="button" data-space-nav="workbench">学习工作台</button><button type="button" data-space-nav="account">我的记忆</button></nav>
     <details class="view-settings">
       <summary><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 6h14M3 14h14M7 3v6M13 11v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>设置</span></summary>
       <div class="view-settings-panel">
@@ -27,23 +27,24 @@
         <label class="mode-control graphics-control" for="graphicsQuality">画面质量<select id="graphicsQuality" aria-label="画面质量"><option value="ultra" selected>极致</option><option value="high">高质量</option><option value="balanced">平衡</option><option value="low">低功耗</option></select></label>
       </div>
     </details>
-    <div class="actions"><button id="openWorkbench" type="button" hidden>成长工作台</button><button id="openAccount" type="button" hidden>账户与记忆</button><button id="motion" type="button" aria-pressed="false">暂停背景</button><button id="topLogout" type="button" data-action="logout" hidden>退出登录</button></div>
+    <div class="actions"><button id="openWorkbench" type="button" hidden>学习工作台</button><button id="openAccount" type="button" hidden>我的记忆</button><button id="motion" type="button" aria-pressed="false">暂停背景</button><button id="topLogout" type="button" data-action="logout" hidden>退出登录</button></div>
   </header>
   <section id="spatialExperience" aria-label="LifeOS 私人数字建筑" data-renderer="loading" data-state="entrance">
     <canvas id="architecture" aria-hidden="true"></canvas><div class="space-grain"></div>
     <div id="entranceCaption" class="space-caption"><h1>让计划重新开始，<br>让成长继续发生。</h1></div>
     <div id="galleryCaption" class="space-caption" hidden><h2>记忆长廊</h2><p id="gallerySummary">登录后查看你的记忆</p></div>
-    <nav id="entrancePortals" class="space-portals" aria-label="建筑中的入口"><button class="space-portal" data-anchor="memory" data-go="gallery" type="button"><strong>进入记忆长廊</strong></button><button class="space-portal" data-anchor="workbench" data-go="workbench" type="button"><strong>重启计划</strong></button><button class="space-portal" data-anchor="archive" data-go="account" type="button"><strong>完整档案</strong></button><button id="demoLaunch" class="space-portal" type="button"><strong>体验示例</strong></button></nav>
+    <nav id="entrancePortals" class="space-portals" aria-label="建筑中的入口"><button class="space-portal" data-anchor="memory" data-go="gallery" type="button"><strong>进入记忆长廊</strong></button><button class="space-portal" data-anchor="workbench" data-go="workbench" type="button"><strong>学习工作台</strong></button><button class="space-portal" data-anchor="archive" data-go="account" type="button"><strong>我的记忆</strong></button><button id="demoLaunch" class="space-portal" type="button"><strong>体验示例</strong></button></nav>
     <div id="exhibitButtons" aria-label="展出的记忆" hidden></div>
     <div id="galleryEmpty" hidden><p id="galleryEmptyText"></p><button data-go="account" type="button">保存记忆 / 选择展板</button></div>
-    <div id="galleryTools" hidden><label>年份<select id="galleryYear"><option value="">所有年份</option></select></label><label>主题<select id="galleryCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><button id="galleryRefresh" type="button">刷新记忆</button><button data-go="account" type="button">完整档案</button></div>
+    <details id="galleryTools" hidden><summary>筛选记忆</summary><div class="gallery-filter-fields"><label>年份<select id="galleryYear"><option value="">所有年份</option></select></label><label>主题<select id="galleryCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><button id="galleryRefresh" type="button">刷新记忆</button><button data-go="account" type="button">我的记忆</button></div></details>
+    <div id="galleryBrowser" hidden aria-label="逐件浏览记忆"><button id="galleryPrevious" type="button">上一件</button><span id="galleryPosition" role="status">0 / 0</span><button id="galleryRead" type="button">阅读这段记忆</button><button id="galleryNext" type="button">下一件</button></div>
     <div class="space-bottom"><p id="renderStatus" role="status" aria-live="polite">正在加载建筑…</p></div><p id="spaceNarration" role="status" aria-live="polite"></p>
   </section>
   <dialog id="memoryDetail" aria-labelledby="detailTitle"><div class="detail-head"><span id="detailMeta"></span><button id="detailClose" type="button">返回长廊</button></div><div class="detail-body"><h2 id="detailTitle"></h2><p id="detailContent"></p><p id="detailSource"></p><p id="detailPrivacy"></p><p id="detailStatus" role="alert"></p><section id="detailReflections" aria-label="后来的感想"></section><div class="detail-actions"><button id="detailEdit" type="button">编辑原记录</button><button id="detailReflect" type="button">添加新的感想</button><button id="detailHide" type="button">从展览隐藏</button></div></div></dialog>
   <main id="functionalSurface" aria-label="LifeOS 功能界面" hidden>
-    <p id="notice" role="status" aria-live="polite">正在连接账户服务…</p>
+    <p id="notice" role="status" aria-live="polite" hidden></p>
     <noscript>请启用 JavaScript 后使用注册、登录和云端记忆。</noscript>
-    <section id="businessWorkspace" hidden aria-label="LifeOS 成长工作台"><p class="workspace-storage-note">当前阶段：目标、课程、任务与知识库文件按账户保存在本设备，尚未云端同步。旧版记录请先导出备份，再在「数据与设置」主动导入。</p><div id="workbenchHost"></div></section>
+    <section id="businessWorkspace" hidden aria-label="LifeOS 学习工作台"><div id="workbenchHost"></div></section>
     <section id="auth" class="panel" hidden aria-label="账户登录">
       <div class="tabs"><button type="button" data-mode="login" aria-pressed="true">登录</button><button type="button" data-mode="signup" aria-pressed="false">注册</button><button type="button" data-mode="forgot" aria-pressed="false">忘记密码</button></div>
       <h2 id="authTitle">欢迎回来</h2>
@@ -62,12 +63,12 @@
       <button type="button" data-action="logout">退出此账户</button>
     </section>
     <section id="workspace" hidden>
-      <div class="workspace-head"><div><h2>账户与记忆</h2><p id="identity" class="muted"></p></div><div class="actions"><button id="refresh" type="button">刷新云端数据</button><button id="export" type="button">导出资料与记忆</button><button type="button" data-action="logout">退出登录</button></div></div>
+      <div class="workspace-head"><div><h2>我的记忆</h2><p id="identity" class="muted"></p></div><div class="actions"><button id="newMemory" type="button">写一段记忆</button><button id="refresh" type="button">刷新云端数据</button><button id="export" type="button">导出资料与记忆</button><button type="button" data-action="logout">退出登录</button></div></div>
+      <section class="panel" id="memoryArchive"><div class="workspace-head"><h3>已保存的记忆</h3><label class="search">搜索<input id="search" type="search" placeholder="内容或来源"></label></div><p class="muted">选择「加入长廊」后才会展出，最多 8 条。全部记忆均保留在此，按创建年份归档。</p><div class="archive-filters"><label>年份<select id="archiveYear"><option value="">所有年份</option></select></label><label>主题<select id="archiveCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label></div><p id="count" class="muted"></p><div id="memories"></div></section>
       <div class="columns">
-        <section class="panel"><h3>个人资料</h3><form id="profileForm"><label>称呼<input name="display_name" maxlength="100"></label><label>个人介绍<textarea name="bio" maxlength="2000" rows="4"></textarea></label><button type="submit">保存资料</button></form><p class="muted">这里保存的资料与你的账户关联。旧站个人档案尚未迁移。</p></section>
-        <section class="panel"><h3 id="memoryTitle">保存一条长期记忆</h3><form id="memoryForm"><label>类别<select name="category"><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info" selected>重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><label>内容<textarea name="content" required maxlength="10000" rows="4" placeholder="只保存你主动选择留下的信息"></textarea></label><label>来源说明<input name="source" value="manual" maxlength="500" required></label><label class="check"><input name="enabled" type="checkbox" checked>启用这条记忆</label><label class="check"><input name="ai_allowed" type="checkbox">允许未来 AI 使用这条记忆（当前尚未接入 AI）</label><div class="actions"><button class="primary" type="submit">保存到云端</button><button id="cancelEdit" type="button" hidden>取消编辑</button></div></form></section>
+        <details id="profileDetails" class="panel"><summary>个人资料</summary><form id="profileForm"><label>称呼<input name="display_name" maxlength="100"></label><label>个人介绍<textarea name="bio" maxlength="2000" rows="4"></textarea></label><button type="submit">保存资料</button></form><p class="muted">这里保存的资料与你的账户关联。旧站个人档案尚未迁移。</p></details>
+        <details id="memoryComposer" class="panel"><summary id="memoryTitle">写一段记忆</summary><form id="memoryForm"><label>类别<select name="category"><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info" selected>重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><label>内容<textarea name="content" required maxlength="10000" rows="4" placeholder="只保存你主动选择留下的信息"></textarea></label><label>来源说明<input name="source" value="manual" maxlength="500" required></label><label class="check"><input name="enabled" type="checkbox" checked>启用这条记忆</label><label class="check"><input name="ai_allowed" type="checkbox">允许未来 AI 使用这条记忆（当前尚未接入 AI）</label><div class="actions"><button class="primary" type="submit">保存到云端</button><button id="cancelEdit" type="button" hidden>取消编辑</button></div></form></details>
       </div>
-      <section class="panel" id="memoryArchive"><div class="workspace-head"><h3>完整记忆档案</h3><label class="search">搜索<input id="search" type="search" placeholder="内容或来源"></label></div><p class="muted">选择“加入长廊”后才会展出。长廊最多展示 8 条；此处始终保留完整档案。年份按创建时间归档。</p><div class="archive-filters"><label>年份<select id="archiveYear"><option value="">所有年份</option></select></label><label>主题<select id="archiveCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label></div><p id="count" class="muted"></p><div id="memories"></div></section>
     </section>
   </main>
   <footer>账户由 Supabase 管理。公用设备使用后请退出登录。云端同步不等同于独立备份。</footer>
