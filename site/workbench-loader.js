@@ -19,6 +19,7 @@ try {
   // Loading private stores starts only after the parent verified the Supabase identity.
   window.LifeOSAccountStorage=context.storage;
   window.LifeOSAccountId=context.userId;
+  window.LifeOSAssistantRequest=context.assistantRequest;
   // Keep the existing Document/body alive for accessibility and host observers.
   // Prepare the complete markup before starting the original scripts in order.
   const page=new DOMParser().parseFromString(source,'text/html');

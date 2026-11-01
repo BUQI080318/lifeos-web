@@ -2,6 +2,7 @@
 window.LifeOSCloudConfig = Object.freeze({
   name: 'LifeOS',
   subtitle: '个人成长操作系统',
+  assistantEnabled: false, // Enable only after the authenticated, budgeted server is deployed.
   url: 'https://fhvsbesdoshelrtvgvgz.supabase.co',
   publishableKey: '__LIFEOS_BROWSER_KEY__',
   storageKey: 'lifeos-cloud-auth-fhvsbesdoshelrtvgvgz-v1'

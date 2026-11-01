@@ -71,7 +71,7 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/?v=competition-20261031'+(workbenchDemo?'&demo=1':'');
+  workbenchFrame=document.createElement('iframe');workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/?v=recovery-20261101'+(workbenchDemo?'&demo=1':'');
   workbenchFrame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(workbenchFrame);
 }
 function showWorkbench(){
@@ -92,7 +92,11 @@ window.addEventListener('message',event=>{
 window.LifeOSWorkspaceSession=()=>{
   if(!sessionUser || !ready || locked)throw Error('当前账户未就绪，请重新登录。');
   const ticket=fence.ticket();
-  return {userId:ticket.userId,storage:accountStorage(localStorage,ticket.userId,()=>fence.assert(ticket)),assertActive:()=>fence.assert(ticket)};
+  return {userId:ticket.userId,storage:accountStorage(localStorage,ticket.userId,()=>fence.assert(ticket)),assertActive:()=>fence.assert(ticket),assistantRequest:cfg.assistantEnabled?async(action,payload)=>{
+    fence.assert(ticket);const {data,error}=await client.auth.getSession();if(error||data.session?.user.id!==ticket.userId)throw Error('请重新登录。');
+    const response=await fetch(cfg.url+'/functions/v1/study-assistant',{method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.publishableKey,Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({action,payload}),signal:AbortSignal.timeout(20000)});fence.assert(ticket);
+    if(!response.ok)throw Error('辅助服务暂不可用。');const result=await response.json();fence.assert(ticket);return result.value;
+  }:undefined};
 };
 $('openWorkbench').onclick=()=>spatial.navigate('workbench');
 $('demoLaunch').onclick=()=>{demoRequested=true;if(workbenchFrame&&!workbenchDemo)workbenchFrame.contentWindow?.postMessage({type:'lifeos-demo-start'},location.origin);spatial.navigate('workbench');};

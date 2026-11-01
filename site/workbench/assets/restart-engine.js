@@ -29,11 +29,32 @@
     for(const slot of sorted){const prev=merged[merged.length-1];if(prev&&slot.start<=prev.end)prev.end=Math.max(prev.end,slot.end);else merged.push({...slot});}
     return {merged,invalid};
   }
+  function settings(options={}){const numeric=(name,fallback,min,max)=>{const v=Number(options[name]??fallback);if(!Number.isInteger(v)||v<min||v>max)throw Error('学习设置无效：'+name);return v;};const strategy=options.strategy||'priority',preference=options.preference||'any';if(!['priority','deadline','balanced'].includes(strategy)||!['any','morning','afternoon','evening'].includes(preference))throw Error('请选择有效的修复策略和学习偏好');return {strategy,preference,focusMinutes:numeric('focusMinutes',options.chunkMinutes||60,1,240),breakMinutes:numeric('breakMinutes',0,0,120),dailyCapMinutes:numeric('dailyCapMinutes',0,0,1440),allowLate:options.allowLate!==false};}
+  const dayKey=ms=>{const d=new Date(ms);return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;};
+  function availability(input,options,now){
+    const config=settings(options),normal=normalizeSlots(input,config.breakMinutes?-Infinity:now),blocked=normalizeSlots(options.blockedSlots||[],config.breakMinutes?-Infinity:now);
+    if(blocked.invalid)throw Error('不可占用时段无效，请先修正。');
+    let free=normal.merged.filter(s=>s.end>now);
+    for(const block of blocked.merged)free=free.flatMap(s=>s.end<=block.start||s.start>=block.end?[s]:[{start:s.start,end:Math.min(s.end,block.start)},{start:Math.max(s.start,block.end),end:s.end}].filter(x=>x.end>x.start));
+    if(!config.breakMinutes&&!config.dailyCapMinutes&&config.strategy!=='balanced')return {...normal,merged:free};
+    const used=new Map(),out=[],cycle=(config.focusMinutes+config.breakMinutes)*MINUTE;
+    for(const slot of free){let cursor=slot.start;if(config.breakMinutes&&cursor<now)cursor+=Math.floor((now-cursor)/cycle)*cycle;
+      while(cursor<slot.end){
+        if(out.length>=20000)throw Error('时段跨度过大，请缩短到近期可用时间。');
+        const d=new Date(cursor),nextDay=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1).getTime(),key=dayKey(cursor),cap=config.dailyCapMinutes?config.dailyCapMinutes-(used.get(key)||0):Infinity;
+        const blockEnd=Math.min(slot.end,nextDay,cursor+config.focusMinutes*MINUTE),start=Math.max(cursor,now),amount=Math.min(minutes(blockEnd-start),cap);
+        if(amount>0){const end=start+amount*MINUTE;out.push({start,end});used.set(key,(used.get(key)||0)+amount);}
+        if(cap<=0)cursor=nextDay;else cursor=blockEnd+config.breakMinutes*MINUTE;
+      }
+    }
+    return {...normal,merged:out};
+  }
+  function dailySlots({from,days=7,start='19:00',end='20:00',weekdays=[0,1,2,3,4,5,6]}={}){const begin=timestamp(from),count=Number(days),time=/^([01]\d|2[0-3]):([0-5]\d)$/;if(begin===null||!Number.isInteger(count)||count<1||count>31||!time.test(start)||!time.test(end)||start===end||!Array.isArray(weekdays)||weekdays.some(d=>!Number.isInteger(d)||d<0||d>6))throw Error('每日日期或时间设置无效');const [sh,sm]=start.split(':').map(Number),[eh,em]=end.split(':').map(Number),base=new Date(begin),out=[];for(let i=0;i<count;i++){const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i);if(!weekdays.includes(d.getDay()))continue;const a=new Date(d.getFullYear(),d.getMonth(),d.getDate(),sh,sm),b=new Date(d.getFullYear(),d.getMonth(),d.getDate()+(end<start?1:0),eh,em);if(a.getHours()!==sh||b.getHours()!==eh||a.getMinutes()!==sm||b.getMinutes()!==em)throw Error('所选本地时间不存在，请避开夏令时跳转');out.push({start:a.toISOString(),end:b.toISOString()});}return out;}
   function normalizeTasks(input,now){
     if(!Array.isArray(input))throw Error('任务必须是数组');
     const seen=new Set(),out=[];
     for(const item of input){
-      if(!item||item.kind==='habit'||item.completed===true)continue;
+      if(!item||item.kind==='habit'||item.completed===true||item.archived===true)continue;
       if(typeof item.id!=='string'||!item.id.trim()||seen.has(item.id))throw Error('任务编号缺失或重复');seen.add(item.id);
       const estimate=Number(item.estimateMinutes),progress=item.progress==null||item.progress===''?0:Number(item.progress);
       const validEstimate=item.estimateMinutes!==''&&item.estimateMinutes!=null&&Number.isFinite(estimate)&&estimate>0;
@@ -43,14 +64,15 @@
       if(remaining===0)continue;
       out.push({id:item.id,taskId:item.id,title:String(item.title||'未命名任务'),priority:rank[item.priority]===undefined?'medium':item.priority,
         deadline:due===null?null:iso(due),deadlineInvalid:hasDeadline&&due===null,remainingMinutes:remaining,
-        estimateMinutes:validEstimate?estimate:null,progress:validProgress?progress:null,missingEstimate:!validEstimate,invalidProgress:!validProgress,overdue:due!==null&&due<now,goalId:item.goalId||''});
+        delayCount:Math.max(0,Number(item.delayCount)||0),commitment:['must','defer'].includes(item.commitment)?item.commitment:'normal',estimateMinutes:validEstimate?estimate:null,progress:validProgress?progress:null,missingEstimate:!validEstimate,invalidProgress:!validProgress,overdue:due!==null&&due<now,goalId:item.goalId||''});
     }
     return out;
   }
   function analyze(inputTasks,inputSlots,options={}){
     const now=options.now==null?Date.now():timestamp(options.now);if(now===null)throw Error('当前时间无效');
-    const tasks=normalizeTasks(inputTasks,now),{merged,invalid}=normalizeSlots(inputSlots,now),issues=[];
+    const tasks=normalizeTasks(inputTasks,now),{merged,invalid}=availability(inputSlots,options,now),issues=[];
     const issue=(type,list,message,extra={})=>{if(list.length)issues.push({type,taskIds:list.map(t=>t.id),message,...extra});};
+    issue('repeated_delay',tasks.filter(t=>t.delayCount>=2),'这些任务已记录多次延期，建议缩小范围或重新确认期限。');
     const overdue=tasks.filter(t=>t.overdue),backlogMinutes=overdue.reduce((n,t)=>n+(t.remainingMinutes||0),0);
     issue('overdue',overdue,'以下任务已超过截止时间，需要重新安排。',{backlogMinutes,unknownEstimateTasks:overdue.filter(t=>t.remainingMinutes===null).length});
     // Each maximal rolling window spans at most 48 hours; overlapping windows are
@@ -84,19 +106,20 @@
     return {tasks,slots:merged.map(s=>({start:iso(s.start),end:iso(s.end)})),issues,totals,generatedAt:iso(now)};
   }
   function plan(inputTasks,inputSlots,options={}){
-    const analysis=analyze(inputTasks,inputSlots,options),now=timestamp(analysis.generatedAt),maxChunk=Math.max(1,Math.min(240,Math.floor(Number(options.chunkMinutes)||60)));
+    if(inputTasks.length>2000)throw Error('一次最多重排 2000 项任务，请先归档无须安排的任务。');const config=settings(options),strategy=config.strategy,analysis=analyze(inputTasks,inputSlots,options),now=timestamp(analysis.generatedAt),maxChunk=config.focusMinutes,dayLoad=new Map(),manual=new Map((options.taskOrder||[]).map((id,index)=>[id,index]));
     const slots=analysis.slots.map(s=>({start:timestamp(s.start),end:timestamp(s.end)})),sessions=[],pending=[];
     // Undated work must never consume the critical window of dated tasks.
     // For dated work, protect importance first and reserve the latest suitable
     // time, leaving earlier windows to tasks whose deadlines are sooner.
-    const ordered=analysis.tasks.filter(t=>t.remainingMinutes!==null&&!t.deadlineInvalid).slice().sort((a,b)=>Number(!a.deadline)-Number(!b.deadline)||(rank[a.priority]-rank[b.priority])||((a.deadline?timestamp(a.deadline):Infinity)-(b.deadline?timestamp(b.deadline):Infinity))||a.id.localeCompare(b.id));
+    const ordered=analysis.tasks.filter(t=>t.remainingMinutes!==null&&!t.deadlineInvalid).slice().sort((a,b)=>Number(!a.deadline)-Number(!b.deadline)||(({must:0,normal:1,defer:2}[a.commitment])-({must:0,normal:1,defer:2}[b.commitment]))||((manual.get(a.id)??999999)-(manual.get(b.id)??999999))||(strategy==='priority'?(rank[a.priority]-rank[b.priority]):0)||((a.deadline?timestamp(a.deadline):Infinity)-(b.deadline?timestamp(b.deadline):Infinity))||(rank[a.priority]-rank[b.priority])||a.id.localeCompare(b.id));
     function reserve(t,index,start,end,late){
       const free=slots[index],before={start:free.start,end:start},after={start:end,end:free.end},parts=[];
       if(before.end>before.start)parts.push(before);if(after.end>after.start)parts.push(after);slots.splice(index,1,...parts);
-      sessions.push({id:`${t.id}:${start}:${sessions.length}`,taskId:t.id,title:t.title,start:iso(start),end:iso(end),minutes:(end-start)/MINUTE,late,reason:late?'截止时间后仍有可用时段，需调整期限后才能按此方案完成。':'先保留有截止日期的重要任务，尽量将较早时段留给更紧急的任务。'});
+      dayLoad.set(dayKey(start),(dayLoad.get(dayKey(start))||0)+(end-start)/MINUTE);sessions.push({id:`${t.id}:${start}:${sessions.length}`,taskId:t.id,title:t.title,start:iso(start),end:iso(end),minutes:(end-start)/MINUTE,late,reason:late?'超过原截止时间，需要你确认延期。':strategy==='deadline'?'优先安排较早截止的任务，保留必要休息。':strategy==='balanced'?'选择当前已排负担较轻的日期，同时检查原截止时间。':'优先保留重要任务，并为较早截止任务留下前段时间。'});
     }
     function allocateOnTime(t,left){
       const deadline=t.deadline?timestamp(t.deadline):Infinity;
+      if(strategy!=='priority'||config.preference!=='any'){while(left>0){const preferred=ms=>{const h=new Date(ms).getHours();return config.preference==='any'?0:config.preference==='morning'?(h>=6&&h<12?0:1):config.preference==='afternoon'?(h>=12&&h<18?0:1):(h>=18&&h<24?0:1);};const candidates=slots.map((s,i)=>({...s,i,end:Math.min(s.end,deadline)})).filter(s=>minutes(s.end-s.start)>0).sort((a,b)=>(strategy==='balanced'?((dayLoad.get(dayKey(a.start))||0)-(dayLoad.get(dayKey(b.start))||0)):0)||preferred(a.start)-preferred(b.start)||(strategy==='priority'?b.end-a.end:a.start-b.start));const free=candidates[0];if(!free)break;const amount=Math.min(left,maxChunk,minutes(free.end-free.start)),start=strategy==='priority'?free.end-amount*MINUTE:free.start;reserve(t,free.i,start,start+amount*MINUTE,false);left-=amount;}return left;}
       for(let i=slots.length-1;i>=0&&left>0;i--){
         while(left>0&&slots[i]){
           const free=slots[i],end=Math.min(free.end,deadline),available=minutes(end-free.start);if(!available)break;
@@ -118,14 +141,14 @@
     // Allocate late work only after every task has had an on-time chance;
     // undated tasks stay behind dated ones during this pass as well.
     pending.sort((a,b)=>Number(!a.task.deadline)-Number(!b.task.deadline)||(rank[a.task.priority]-rank[b.task.priority])||((a.task.deadline?timestamp(a.task.deadline):Infinity)-(b.task.deadline?timestamp(b.task.deadline):Infinity)));
-    for(const item of pending)item.left=allocateRemaining(item.task,item.left);
+    if(config.allowLate)for(const item of pending)item.left=allocateRemaining(item.task,item.left);
     const unplanned=pending.filter(p=>p.left).map(p=>({taskId:p.task.id,title:p.task.title,minutes:p.left,reason:'提供的可用时段不足；请增加时间、减少范围或调整期限。'}));
     for(const t of analysis.tasks.filter(t=>t.deadlineInvalid&&t.remainingMinutes!==null))unplanned.push({taskId:t.id,title:t.title,minutes:t.remainingMinutes,reason:'截止时间无效，请更正后重新生成。'});
     const suggestions=[];
     for(const t of ordered){const late=sessions.filter(s=>s.taskId===t.id&&s.late),missing=unplanned.find(p=>p.taskId===t.id);if(!late.length&&!missing)continue;const last=late.length?late[late.length-1].end:null;suggestions.push({taskId:t.id,title:t.title,deadline:t.deadline,latestScheduledEnd:last,unplannedMinutes:missing?.minutes||0,reason:missing?'可用时间不足；无法确认完成日期。可考虑缩小范围、增加时段或与相关人员确认延期。':`当前安排的最后一段在 ${last} 结束，晚于原截止时间；请先确认能否延期。`});}
     sessions.sort((a,b)=>timestamp(a.start)-timestamp(b.start)||a.id.localeCompare(b.id));
     analysis.totals={...analysis.totals,scheduledMinutes:sessions.reduce((n,s)=>n+s.minutes,0),lateMinutes:sessions.filter(s=>s.late).reduce((n,s)=>n+s.minutes,0),unplannedMinutes:unplanned.reduce((n,s)=>n+s.minutes,0)};
-    return {...analysis,sessions,unplanned,suggestions};
+    return {...analysis,strategy,settings:config,sessions,unplanned,suggestions};
   }
   /** Validate a user-edited plan before a separate storage transaction commits it. */
   function validateSessions(inputTasks,inputSlots,inputSessions,options={}){
@@ -140,7 +163,7 @@
       if(start===null||end===null||end<=start||!Number.isInteger((end-start)/MINUTE)){errors.push(`「${task.title}」的时段无效，请填写正整数分钟。`);continue;}
       if(start<now)errors.push(`「${task.title}」的开始时间已经过去，请调整或重新生成。`);
       if(!slots.some(slot=>start>=slot.start&&end<=slot.end))errors.push(`「${task.title}」的时段不在可用时间内。`);
-      const duration=(end-start)/MINUTE,deadline=task.deadline?timestamp(task.deadline):null,late=deadline!==null&&end>deadline;
+      const duration=(end-start)/MINUTE,deadline=task.deadline?timestamp(task.deadline):null,late=deadline!==null&&end>deadline;if(late&&options.allowLate===false)errors.push('当前设置不接受截止后的安排，请调整时段或明确修改任务期限。');
       totals.set(task.id,(totals.get(task.id)||0)+duration);
       sessions.push({id,taskId:task.id,title:task.title,start:iso(start),end:iso(end),minutes:duration,late,reason:String(source.reason||'由用户调整，请确认安排与截止时间。')});
     }
@@ -162,10 +185,12 @@
     title=String(title||'').trim();const begin=start==null?Date.now():timestamp(start),end=timestamp(deadline,true),total=Math.floor(Number(availableMinutes));
     if(!title)throw Error('请填写学习目标');if(begin===null||end===null||end<=begin)throw Error('请填写晚于开始时间的有效期限');if(!Number.isFinite(total)||total<1)throw Error('请填写至少 1 分钟可用学习时间');
     const match=title.match(/前([一二三四五六七八九十两\d]{1,3})章/),chapters=match?chineseNumber(match[1]):0,count=Math.max(1,Math.min(12,total,chapters||3));
-    const names=chapters?Array.from({length:count},(_,i)=>{const first=Math.floor(i*chapters/count)+1,last=Math.floor((i+1)*chapters/count);return (first===last?`第 ${first} 章`:`第 ${first}–${last} 章`)+` · ${title}`;}):[`明确范围 · ${title}`,`分段学习 · ${title}`,`回顾与检查 · ${title}`].slice(0,count);
-    const tasks=names.map((name,i)=>({title:name.slice(0,240),notes:'由规则模板拆分，请按实际内容和用时调整。',deadline:iso(begin+Math.floor((end-begin)*(i+1)/count)),estimateMinutes:Math.floor(total/count)+(i<total%count?1:0),progress:0,priority:'medium',kind:'task',completed:false}));
+    const steps=/英语|英文|词汇|阅读/.test(title)?[['梳理词汇与阅读目标','标记生词、题型及需要解决的问题。'],['限时阅读与练习','完成阅读练习，记录答案依据和实际用时。'],['错题回顾与自测','回看错题并闭卷复述，确认仍需补习的知识。']]:/作业|论文|报告|汇报/.test(title)?[['明确要求与提纲','核对要求、评分点和资料来源，列出提纲。'],['完成主体与初稿','按提纲完成可检查的初稿或练习成果。'],['检查与提交准备','核对引用、格式及遗漏，留出提交时间。']]:[['梳理知识框架','整理概念、章节关系与学习重点。'],['主动回忆与练习','闭卷复述核心概念，完成例题或实践练习。'],['复盘与自测','整理薄弱处并完成一次自测。']];
+    const names=chapters?Array.from({length:count},(_,i)=>{const first=Math.floor(i*chapters/count)+1,last=Math.floor((i+1)*chapters/count);return (first===last?`第 ${first} 章`:`第 ${first}–${last} 章`)+` · ${title}`;}):steps.slice(0,count).map(s=>s[0]+' · '+title);
+    const weights=chapters?names.map(()=>1):[0.2,0.55,0.25].slice(0,count),weight=weights.reduce((n,x)=>n+x,0);let allotted=0;
+    const tasks=names.map((name,i)=>{const minutes=i===count-1?total-allotted:Math.max(1,Math.floor((total-count)*weights[i]/weight)+1);allotted+=minutes;return {title:name.slice(0,240),notes:(chapters?steps.map(s=>s.join('：')).join('；'):steps[i][1])+' 用时为规则建议，请核实教材内容、难度和实际用时。',deadline:iso(begin+Math.floor((end-begin)*(i+1)/count)),estimateMinutes:minutes,progress:0,priority:'medium',kind:'task',completed:false};});
     const warning=chapters>count?'章节已按可用时间合并到各建议中，请核对每段的工作量。':'';
-    return {tasks,explanation:`基于关键词和平均时间分配的规则建议，非 AI 生成；请确认章节、时长和截止时间。${warning}`};
+    return {tasks,explanation:`基于任务类型的规则建议，非 AI 生成；按梳理、实践、检查组织步骤。章节难度未知时暂均分预算，请核实每项时长与期限。${warning}`};
   }
-  const api=Object.freeze({analyze,plan,validateSessions,splitGoal});if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.LifeOSRestartEngine=api;
+  const api=Object.freeze({analyze,plan,validateSessions,splitGoal,dailySlots,settings});if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.LifeOSRestartEngine=api;
 })(typeof window!=='undefined'?window:null);

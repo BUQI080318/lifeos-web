@@ -1,0 +1,3 @@
+[functions.study-assistant]
+# Handler always verifies the user JWT with this project's Auth server before use.
+verify_jwt = false
