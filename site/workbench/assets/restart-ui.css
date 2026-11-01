@@ -38,7 +38,7 @@
 @media(prefers-reduced-motion:reduce){.rs-workspace *,.rs-workspace *:before,.rs-workspace *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* Keep this product navigation in the page; older workspace nav is a fixed dock. */
-.liquid-universe .rs-workspace .rs-nav{position:relative;inset:auto;transform:none;display:flex;flex-direction:row;grid-template-columns:none;width:100%;max-width:none;margin:0;padding:9px 0 6px;gap:clamp(8px,2vw,28px);border:0;border-bottom:1px solid var(--rs-line);border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;overflow-x:auto;z-index:2}
+.liquid-universe .rs-workspace .rs-nav{position:relative;inset:auto;transform:none;display:flex;flex-direction:row;justify-content:flex-start;grid-template-columns:none;width:100%;max-width:none;margin:0;padding:9px 0 6px;gap:clamp(8px,2vw,28px);border:0;border-bottom:1px solid var(--rs-line);border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;overflow-x:auto;z-index:2}
 .liquid-universe .rs-workspace .rs-nav button{flex:none;width:auto;min-height:44px;padding:11px 2px;border:0;border-bottom:1px solid transparent;border-radius:0;background:transparent;box-shadow:none;white-space:nowrap}
 .liquid-universe .rs-workspace .rs-nav button[aria-current=page]{border-bottom-color:var(--rs-accent);color:#e9f5f1}
 
