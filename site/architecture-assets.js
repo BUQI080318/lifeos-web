@@ -1,0 +1,13 @@
+import {architectureAssets} from './architecture-manifest.js';
+const base=new URL('./assets/architecture/',import.meta.url);
+export function createAssetLoader(onProgress=()=>{}){
+ const abort=new AbortController(),counts=new Map(),sizes=new Map(Object.entries(architectureAssets).map(([name,item])=>[name,item.bytes]));let worker=null,sequence=0,disposed=false;const jobs=new Map();
+ const report=()=>{if(!disposed)onProgress({phase:'download',loaded:[...counts.values()].reduce((a,b)=>a+b,0),total:[...sizes.values()].reduce((a,b)=>a+b,0)});};
+ if(typeof Worker==='function'&&typeof DecompressionStream==='function'){try{worker=new Worker(new URL('./architecture-worker.js',import.meta.url),{type:'module'});worker.onmessage=({data})=>{const job=jobs.get(data.id);if(!job)return;jobs.delete(data.id);data.error?job.reject(Error(data.error)):job.resolve(data.result);};worker.onerror=()=>{for(const job of jobs.values())job.reject(Error('后台解码不可用'));jobs.clear();worker.terminate();worker=null;};}catch{worker=null;}}
+ async function download(name,file,expected){sizes.set(name,expected);counts.set(name,0);report();const response=await fetch(new URL(file,base),{signal:abort.signal});if(!response.ok)throw Error('建筑资源请求失败：'+response.status);if(!response.body){const data=await response.arrayBuffer();counts.set(name,data.byteLength);report();return data;}const reader=response.body.getReader(),chunks=[];let length=0,last=0;while(true){const {done,value}=await reader.read();if(done)break;chunks.push(value);length+=value.length;counts.set(name,length);if(performance.now()-last>120){report();last=performance.now();}}const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}counts.set(name,length);report();return bytes.buffer;}
+ async function load(name){const item=architectureAssets[name];if(!item)throw Error('未知建筑资源');if(typeof DecompressionStream!=='function')return {original:await download(name,name,item.originalBytes)};
+  try{const buffer=await download(name,item.file,item.bytes);onProgress({phase:'decode',background:!!worker});let result;if(worker){result=await new Promise((resolve,reject)=>{const id=++sequence;jobs.set(id,{resolve,reject});worker.postMessage({id,buffer,encoding:item.encoding},[buffer]);});}else{const {decompressAsset}=await import('./architecture-codec.js');result=await decompressAsset(buffer,item.encoding);}return {decoded:result};}
+  catch(error){if(disposed||abort.signal.aborted)throw error;return {original:await download(name,name,item.originalBytes)};}
+ }
+ return {load,dispose(){disposed=true;abort.abort();worker?.terminate();for(const job of jobs.values())job.reject(Error('建筑加载已结束'));jobs.clear();}};
+}

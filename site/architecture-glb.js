@@ -6,21 +6,25 @@ import {createFloorReflection} from './architecture-reflection.js';
 import {createTour,smoothProgress} from './architecture-path.js';
 import {qualityPresets} from './spatial-config.js';
 import {renderDimensions,hdrSamples} from './architecture-quality.js';
+import {createAssetLoader} from './architecture-assets.js';
 
 const asset=new URL('./assets/architecture/',import.meta.url).href;
-export async function createArchitecture(canvas,onProject,onFailure,initialQuality='ultra',onSelect=()=>{}){
+export async function createArchitecture(canvas,onProject,onFailure,initialQuality='ultra',onSelect=()=>{},onLoadProgress=()=>{}){
  const renderer=new T.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});renderer.outputColorSpace=T.LinearSRGBColorSpace;renderer.toneMapping=T.NoToneMapping;renderer.info.autoReset=false;
  const scene=new T.Scene();scene.background=new T.Color().setRGB(2.16,2.67,3,T.LinearSRGBColorSpace);const camera=new T.PerspectiveCamera();
- const hdr=new HDRLoader();let justReturned=false;let assetScene,display,reflection,tour,metadata,mode='standard',quality=initialQuality,active=true,destroyed=false,raf=0,motion=null,u=0,returnPose=null,selected=null,rows=[],count=0;
+ const loader=createAssetLoader(onLoadProgress),hdr=new HDRLoader();let justReturned=false;let assetScene,display,reflection,tour,metadata,mode='standard',quality=initialQuality,active=true,destroyed=false,raf=0,motion=null,u=0,returnPose=null,selected=null,rows=[],count=0;
  const furniture=new T.Group();scene.add(furniture);
  const panels=new Map(),resources=[];let memorySignature=null,dimensions=null,samples=0;
  const frameTimes=[];let previousFrame=0;const maxAnisotropy=renderer.capabilities.getMaxAnisotropy();
- try{const [meta,glb,stone,concrete,env,lut,bytes,emitters]=await Promise.all([fetch(asset+'cameras.json').then(r=>r.json()),new GLTFLoader().loadAsync(asset+'building.glb'),hdr.loadAsync(asset+'v16-stone-diffuse.hdr'),hdr.loadAsync(asset+'v16-concrete-diffuse.hdr'),hdr.loadAsync(asset+'v16-local-radiance.hdr'),fetch(asset+'v16-display.json').then(r=>r.json()),fetch(asset+'v16-display-lut.bin').then(r=>r.arrayBuffer()),fetch(asset+'v16-emitters.json').then(r=>r.json())]);
- metadata=meta;tour=createTour(meta);assetScene=glb.scene;scene.add(assetScene);resources.push(stone,concrete);display=createDisplay(renderer,bytes,lut);
+ try{const [meta,glb,stone,concrete,env,lut,bytes,emitters]=await Promise.all([fetch(asset+'cameras.json').then(r=>r.json()),loadModel(),loadRadiance('v16-stone-diffuse.hdr'),loadRadiance('v16-concrete-diffuse.hdr'),loadRadiance('v16-local-radiance.hdr'),fetch(asset+'v16-display.json').then(r=>r.json()),loadBytes('v16-display-lut.bin'),fetch(asset+'v16-emitters.json').then(r=>r.json())]);
+ onLoadProgress({phase:'lighting'});metadata=meta;tour=createTour(meta);assetScene=glb.scene;scene.add(assetScene);resources.push(stone,concrete);display=createDisplay(renderer,bytes,lut);
  const pmrem=new T.PMREMGenerator(renderer);const rt=pmrem.fromEquirectangular(env);scene.environment=rt.texture;scene.environmentRotation.y=-Math.PI/2;resources.push(rt);env.dispose();pmrem.dispose();
  assetScene.traverse(o=>{if(!o.isMesh)return;if(o.name==='V16_stone'||o.name==='V16_concrete')applyRadianceLightmap(o.material,o.name==='V16_stone'?stone:concrete);for(const m of Array.isArray(o.material)?o.material:[o.material])for(const key of ['map','roughnessMap','normalMap','lightMap'])if(m[key])m[key].anisotropy=maxAnisotropy;});
  reflection=createFloorReflection(renderer,scene,assetScene.getObjectByName('V16_stone'),emitters);
- }catch(e){disposeLoaded();throw e;}
+ }catch(e){disposeLoaded();throw e;}finally{loader.dispose();}
+ async function loadBytes(name){const result=await loader.load(name);return result.decoded||result.original;}
+ async function loadModel(){return new GLTFLoader().parseAsync(await loadBytes('building.glb'),asset);}
+ async function loadRadiance(name){const result=await loader.load(name),parsed=result.decoded||hdr.parse(result.original);const texture=new T.DataTexture(parsed.data,parsed.width,parsed.height,T.RGBAFormat,T.HalfFloatType);texture.colorSpace=T.LinearSRGBColorSpace;texture.minFilter=texture.magFilter=T.LinearFilter;texture.generateMipmaps=false;texture.flipY=true;texture.needsUpdate=true;return texture;}
  function disposeLoaded(){
   const materials=new Set(),textures=new Set();
   assetScene?.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});
@@ -83,7 +87,7 @@ export async function createArchitecture(canvas,onProject,onFailure,initialQuali
 });draw();}
  const ray=new T.Raycaster(),pointer=new T.Vector2();let hovered=null;function hit(e){if(motion)return null;const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2);ray.setFromCamera(pointer,camera);const hits=ray.intersectObjects([...panels.values()].filter(m=>m.visible));return hits.length?[...panels].find(([,m])=>m===hits[0].object)?.[0]:null;}function hover(e){const id=hit(e);if(hovered===id)return;if(hovered&&panels.has(hovered))panels.get(hovered).material.color.setScalar(1);hovered=id;if(id)panels.get(id).material.color.setScalar(1.09);canvas.style.cursor=id?'pointer':'';draw();}function select(e){const id=hit(e);if(id)onSelect(id);}canvas.addEventListener('pointermove',hover);canvas.addEventListener('click',select);
  // Compile the stable building before navigation starts, avoiding first-travel shader stalls.
- try{await renderer.compileAsync(scene,camera);await display.prepare();}catch(error){disposeLoaded();throw error;}
+ onLoadProgress({phase:'compile'});try{await renderer.compileAsync(scene,camera);await display.prepare();}catch(error){disposeLoaded();throw error;}
  const observer=new ResizeObserver(resize);observer.observe(canvas);function visibility(){if(document.hidden)cancel();else draw();}document.addEventListener('visibilitychange',visibility);canvas.addEventListener('webglcontextlost',onFailure);resize();
  return{go(name,instant=false){if(name==='gallery'&&justReturned){justReturned=false;return Promise.resolve(true);}justReturned=false;if(selected){panels.get(selected).visible=true;selected=null;if(name==='gallery'&&returnPose){const dest=returnPose;returnPose=null;const mid=camera.position.clone().lerp(dest.position,.5).add(new T.Vector3(.04,0,0));return animate(dest,instant?0:1200,new T.CatmullRomCurve3([camera.position.clone(),mid,dest.position],false,'centripetal'));}}const target=stops[name]??0;const duration=instant?0:Math.max(1400,Math.abs(target-u)*(mode==='immersive'?9000:6500));return animate(tour.pose(target),duration,null,target);},
  async approach(id){const mesh=panels.get(id);if(!mesh)return null;returnPose=snapshot();selected=id;const normal=new T.Vector3(0,0,1).applyQuaternion(mesh.quaternion),dest=mesh.position.clone().addScaledVector(normal,canvas.clientWidth<650?1.8:1.2);dest.y=Math.max(1.15,Math.min(2,dest.y));const cam=new T.PerspectiveCamera();cam.position.copy(dest);cam.lookAt(mesh.position);const mid=camera.position.clone().lerp(dest,.5).addScaledVector(new T.Vector3(1,0,0).applyQuaternion(mesh.quaternion),.09);const done=await animate({position:dest,quaternion:cam.quaternion},mode==='immersive'?2200:1500,new T.CatmullRomCurve3([camera.position.clone(),mid,dest],false,'centripetal'));return done?rect(mesh):null;},

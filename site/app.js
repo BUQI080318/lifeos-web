@@ -1,6 +1,6 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
-import {createSpatialExperience} from './cinematic.js';
+import {createSpatialExperience} from './cinematic.js?v=load-20261101';
 
 const $ = id => document.getElementById(id);
 const cfg = window.LifeOSCloudConfig;
