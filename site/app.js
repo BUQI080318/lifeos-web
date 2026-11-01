@@ -1,5 +1,6 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
+import {createLoadGate} from './workbench-loading.js';
 import {createSpatialExperience} from './cinematic.js?v=load-20261101';
 
 const $ = id => document.getElementById(id);
@@ -12,7 +13,7 @@ let mode = 'login', recovering = false, sessionUser = null, locked = false, read
 let requestSerial = 0, authBusy = false, mailUntil = 0;
 let hydration = null;
 let editorGeneration = 0;
-let workbenchFrame=null,demoRequested=false,workbenchDemo=false;
+let workbenchFrame=null,demoRequested=false,workbenchDemo=false,workbenchLoadGate=null;
 let spatial=null,settings=null,exhibitionBusy=false;
 const requestedSpace=location.hash.match(/^#space\/(entrance|gallery|account|workbench|memory\/[\w-]+)$/)?.[1]||'entrance';
 const hashParams = new URLSearchParams(location.hash.slice(1));
@@ -50,7 +51,7 @@ function resetEditor() {
 }
 function clearPrivate() {
   const keepDemo=demoRequested&&workbenchDemo&&!!workbenchFrame;
-  if(workbenchFrame&&!keepDemo){workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}
+  if(workbenchFrame&&!keepDemo){workbenchLoadGate?.destroy();workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}
   $('businessWorkspace').hidden=!keepDemo;document.body.dataset.view=keepDemo?'workbench':'account';document.body.dataset.authenticated='false';
   for(const id of ['openWorkbench','openAccount','topLogout'])$(id).hidden=true;
   profile = null; memories = []; settings=null; sessionUser = null; ready = false; requestSerial++;
@@ -71,8 +72,10 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/?v=recovery-20261101'+(workbenchDemo?'&demo=1':'');
-  workbenchFrame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(workbenchFrame);
+  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'LifeOS 重启计划示例':'LifeOS 成长工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=recovery-20261101'+(workbenchDemo?'&demo=1':'');
+  const frame=workbenchFrame,loading=document.createElement('div'),label=document.createElement('p'),retry=document.createElement('button');loading.className='workbench-loading';label.setAttribute('role','status');retry.type='button';retry.textContent='重新加载工作台';retry.onclick=()=>workbenchLoadGate?.retry();loading.append(label,retry);
+  frame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(frame,loading);workbenchLoadGate?.destroy();
+  workbenchLoadGate=createLoadGate({onChange:state=>{loading.hidden=state.status==='ready';retry.hidden=!state.canRetry;label.textContent=state.canRetry?'工作台加载较慢。可以重试；未保存的输入请先保留。':'正在打开学习工作台…';},onRetry:()=>{if(frame!==workbenchFrame)return;frame.src=frame.src.split('&retry=')[0]+'&retry='+Date.now();}});
 }
 function showWorkbench(){
   if(!sessionUser || !ready || recovering)throw Error('请先完成账户验证并读取数据。');
@@ -84,10 +87,10 @@ function showWorkbench(){
 }
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==workbenchFrame?.contentWindow)return;
-  if(event.data?.type==='lifeos-workbench-ready'){workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);if(demoRequested&&!workbenchDemo)workbenchFrame.contentWindow.postMessage({type:'lifeos-demo-start'},location.origin);}
+  if(event.data?.type==='lifeos-workbench-ready'){workbenchLoadGate?.ready();workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);if(demoRequested&&!workbenchDemo)workbenchFrame.contentWindow.postMessage({type:'lifeos-demo-start'},location.origin);}
   if(event.data?.type==='lifeos-demo-active'){demoRequested=true;document.querySelector('.workspace-storage-note').hidden=true;}
   if(event.data?.type==='lifeos-demo-finished'){demoRequested=false;document.querySelector('.workspace-storage-note').hidden=false;}
-  if(event.data?.type==='lifeos-demo-exit'){demoRequested=false;if(workbenchDemo){workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}spatial.navigate('entrance');}
+  if(event.data?.type==='lifeos-demo-exit'){demoRequested=false;if(workbenchDemo){workbenchLoadGate?.destroy();workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}spatial.navigate('entrance');}
 });
 window.LifeOSWorkspaceSession=()=>{
   if(!sessionUser || !ready || locked)throw Error('当前账户未就绪，请重新登录。');
@@ -297,7 +300,7 @@ window.addEventListener('pagehide',event=>{if(!event.persisted)fluid?.destroy();
 window.addEventListener('offline',()=>tell('当前网络已断开。请保留未保存草稿，联网后核对云端数据。',true));
 
 spatial=createSpatialExperience({
-  onPrepare:view=>{if(view==='workbench')prepareWorkbench();else if(demoRequested){demoRequested=false;if(!workbenchDemo)workbenchFrame?.contentWindow?.postMessage({type:'lifeos-demo-stop'},location.origin);if(workbenchDemo&&workbenchFrame){workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}}},
+  onPrepare:view=>{if(view==='workbench')prepareWorkbench();else if(demoRequested){demoRequested=false;if(!workbenchDemo)workbenchFrame?.contentWindow?.postMessage({type:'lifeos-demo-stop'},location.origin);if(workbenchDemo&&workbenchFrame){workbenchLoadGate?.destroy();workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}}},
   onView(view){
     $('businessWorkspace').hidden=true;$('workspace').hidden=true;$('auth').hidden=true;document.querySelector('.workspace-storage-note').hidden=Boolean(demoRequested);
     if(fluid&&!fluid.paused)fluid.toggle();
