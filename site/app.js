@@ -1,7 +1,8 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
 import {createLoadGate} from './workbench-loading.js';
-import {createSpatialExperience} from './cinematic.js?v=fullspace-20261101';
+import {createAssistantRequest} from './assistant-client.js?v=ai-phase1-20261102';
+import {createSpatialExperience} from './cinematic.js?v=ai-phase1-20261102';
 
 const $ = id => document.getElementById(id);
 const cfg = window.LifeOSCloudConfig;
@@ -78,7 +79,7 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=fullspace-20261101'+(workbenchDemo?'&demo=1':'');
+  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=ai-phase1-20261102'+(workbenchDemo?'&demo=1':'');
   const frame=workbenchFrame,loading=document.createElement('div'),label=document.createElement('p'),retry=document.createElement('button');loading.className='workbench-loading';label.setAttribute('role','status');retry.type='button';retry.textContent='重新加载工作台';retry.onclick=()=>workbenchLoadGate?.retry();loading.append(label,retry);
   frame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(frame,loading);workbenchLoadGate?.destroy();
   workbenchLoadGate=createLoadGate({onChange:state=>{loading.hidden=state.status==='ready';retry.hidden=!state.canRetry;label.textContent=state.canRetry?'工作台加载较慢。可以重试；未保存的输入请先保留。':'正在打开学习工作台…';},onRetry:()=>{if(frame!==workbenchFrame)return;frame.src=frame.src.split('&retry=')[0]+'&retry='+Date.now();}});
@@ -101,11 +102,7 @@ window.addEventListener('message',event=>{
 window.LifeOSWorkspaceSession=()=>{
   if(!sessionUser || !ready || locked)throw Error('当前账户未就绪，请重新登录。');
   const ticket=fence.ticket();
-  return {userId:ticket.userId,storage:accountStorage(localStorage,ticket.userId,()=>fence.assert(ticket)),assertActive:()=>fence.assert(ticket),assistantRequest:cfg.assistantEnabled?async(action,payload)=>{
-    fence.assert(ticket);const {data,error}=await client.auth.getSession();if(error||data.session?.user.id!==ticket.userId)throw Error('请重新登录。');
-    const response=await fetch(cfg.url+'/functions/v1/study-assistant',{method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.publishableKey,Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({action,payload}),signal:AbortSignal.timeout(20000)});fence.assert(ticket);
-    if(!response.ok)throw Error('辅助服务暂不可用。');const result=await response.json();fence.assert(ticket);return result.value;
-  }:undefined};
+  return {userId:ticket.userId,storage:accountStorage(localStorage,ticket.userId,()=>fence.assert(ticket)),assertActive:()=>fence.assert(ticket),assistantRequest:cfg.assistantEnabled?createAssistantRequest({client,url:cfg.url,publishableKey:cfg.publishableKey,userId:ticket.userId,assertActive:()=>fence.assert(ticket)}):undefined};
 };
 $('openWorkbench').onclick=()=>spatial.navigate('workbench');
 $('demoLaunch').onclick=()=>{demoRequested=true;if(workbenchFrame&&!workbenchDemo)workbenchFrame.contentWindow?.postMessage({type:'lifeos-demo-start'},location.origin);spatial.navigate('workbench');};

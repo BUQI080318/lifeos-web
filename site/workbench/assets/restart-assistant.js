@@ -16,20 +16,23 @@
  }
  function validate(action,value){
   if(!value||typeof value!=='object'||Array.isArray(value))throw Error('建议格式无效');
-  const keys={parse:['title','deadline','estimateMinutes','priority','notes'],split:['tasks','explanation'],explain:['explanation']}[action];if(!keys||Object.keys(value).some(k=>!keys.includes(k)))throw Error('建议包含未知字段');
+  const keys={parse:['title','course','deadline','deadlineText','estimateMinutes','priority','notes','missingInformation'],split:['tasks','explanation'],explain:['explanation']}[action];if(!keys||Object.keys(value).some(k=>!keys.includes(k)))throw Error('建议包含未知字段');
   if(action==='explain'){if(typeof value.explanation!=='string'||value.explanation.length>3000)throw Error('解释格式无效');return {explanation:value.explanation};}
   if(action==='split'){if(!Array.isArray(value.tasks)||!value.tasks.length||value.tasks.length>12)throw Error('拆解数量无效');return {tasks:value.tasks.map(t=>validate('parse',t)),explanation:String(value.explanation||'').slice(0,3000)};}
-  const title=String(value.title||'').trim();if(!title||title.length>240)throw Error('任务名称无效');
+  if(typeof value.title!=='string')throw Error('任务名称无效');const title=value.title.trim();if(!title||title.length>240)throw Error('任务名称无效');
   const estimate=value.estimateMinutes;if(estimate!==undefined&&estimate!==''&&(!Number.isInteger(estimate)||estimate<1||estimate>600000))throw Error('预计时长无效');
   if(value.deadline){const d=String(value.deadline).match(/^(\d{4})-(\d{2})-(\d{2})T([0-2]\d):([0-5]\d)(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/),check=d?new Date(Date.UTC(+d[1],+d[2]-1,+d[3])):null;if(!d||+d[4]>23||!Number.isFinite(Date.parse(value.deadline))||check.getUTCFullYear()!==+d[1]||check.getUTCMonth()!==+d[2]-1||check.getUTCDate()!==+d[3])throw Error('任务期限无效');}
   if(value.priority&&!['high','medium','low'].includes(value.priority))throw Error('重要程度无效');
-  if(value.notes&&String(value.notes).length>2000)throw Error('任务说明过长');
-  return {title,deadline:value.deadline||'',estimateMinutes:estimate||'',priority:value.priority||'medium',notes:value.notes||''};
+  if(value.notes!==undefined&&(typeof value.notes!=='string'||value.notes.length>2000))throw Error('任务说明格式无效或过长');
+  const extra={};for(const [key,max] of [['course',120],['deadlineText',240]])if(value[key]!==undefined){if(typeof value[key]!=='string'||value[key].length>max)throw Error('课程或期限说明无效');extra[key]=value[key];}
+  if(value.missingInformation!==undefined){if(!Array.isArray(value.missingInformation)||value.missingInformation.length>10||value.missingInformation.some(item=>typeof item!=='string'||!item.trim()||item.length>300))throw Error('缺失信息格式无效');extra.missingInformation=[...value.missingInformation];}
+  return {title,...extra,deadline:value.deadline||'',estimateMinutes:estimate||'',priority:value.priority||'medium',notes:value.notes||''};
  }
  async function suggest(action,input,{request,engine=root?.LifeOSRestartEngine,now=new Date()}={}){
-  if(request){try{const value=validate(action,await request(action,input));if(action==='split'&&(value.tasks.some(t=>!t.deadline||!t.estimateMinutes||Date.parse(t.deadline)<Date.parse(input.start)||Date.parse(t.deadline)>Date.parse(input.deadline))||value.tasks.reduce((n,t)=>n+t.estimateMinutes,0)!==input.availableMinutes))throw Error('拆解超出时间约束');return {mode:'model',value,notice:'模型建议，请核实后确认。'};}catch(_){/* Core flow remains available without the remote model. */}}
+  if(request){try{const value=validate(action,await request(action,input));if(action==='split'&&(value.tasks.some(t=>!t.deadline||!t.estimateMinutes||Date.parse(t.deadline)<Date.parse(input.start)||Date.parse(t.deadline)>Date.parse(input.deadline))||value.tasks.reduce((n,t)=>n+t.estimateMinutes,0)!==input.availableMinutes))throw Error('拆解超出时间约束');return {mode:'model',value,notice:'真实 AI 任务草案，请核实后确认。'};}catch(error){if(action==='parse')throw error;/* Other optional explanations retain a labelled rules fallback. */}}
   const value=action==='parse'?parse(input.text,{now}):action==='split'?engine.splitGoal(input):{explanation:'规则引擎已按所选策略校验可用时段、截止时间和剩余工作量。未安排与延期部分请单独确认；不会自动改变任务期限。'};
   return {mode:'rules',value,notice:request?'模型暂不可用，已回退规则模式。':'规则模式 · 未接入大模型'};
  }
- const api={parse,validate,suggest};if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.LifeOSRestartAssistant=api;
+ function createIntake({isActive=()=>true}={}){let serial=0,busy=false;return {get busy(){return busy;},cancel(){serial++;busy=false;},async run(action,input,options){if(busy)throw Error('AI 正在处理中，请勿重复提交。');busy=true;const token=++serial;try{const result=await suggest(action,input,options);return token===serial&&isActive()?result:null;}catch(error){if(token!==serial||!isActive())return null;throw error;}finally{if(token===serial)busy=false;}}};}
+ const api={parse,validate,suggest,createIntake};if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.LifeOSRestartAssistant=api;
 })(typeof window!=='undefined'?window:globalThis);

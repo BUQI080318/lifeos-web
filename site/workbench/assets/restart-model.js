@@ -7,7 +7,7 @@
  const iso=value=>new Date(value).toISOString();
  function createController({store,engine,now=()=>new Date(),uid=()=>crypto.randomUUID(),resources=[],demoOnly=false}){
   if(!store||!engine)throw Error('学习工作台尚未就绪。');
-  let active=store,mode='real',phase='',draft=null,splitPreview=null,draftBasis='',resourceList=resources;
+  let active=store,mode='real',phase='',draft=null,splitPreview=null,aiDraft=null,draftBasis='',resourceList=resources;
   const timestamp=()=>now().toISOString();
   function restart(state){
    if(state.restart==null)return {...emptyRestart(),preferences:engine.settings({}),blockedSlots:[]};
@@ -28,9 +28,9 @@
   function invalidate(){draft=null;draftBasis='';}
   function fingerprint(state){return JSON.stringify({tasks:state.tasks,slots:state.restart.slots,schedule:state.restart.schedule,preferences:state.restart.preferences,blockedSlots:state.restart.blockedSlots,taskOrder:state.restart.taskOrder});}
   function taskValues(input,existing){
-   const title=String(input.title||'').trim(),notes=String(input.notes||'').trim(),estimate=Number(input.estimateMinutes),progress=Number(input.progress||0);
+   const title=String(input.title||'').trim(),notes=String(input.notes||'').trim(),course=String(input.course??existing?.course??'').trim(),estimate=Number(input.estimateMinutes),progress=Number(input.progress||0);
    if(!title||title.length>240)throw Error('请填写不超过 240 字的任务名称。');
-   if(notes.length>30000)throw Error('任务说明过长。');
+   if(notes.length>30000)throw Error('任务说明过长。');if(course.length>120)throw Error('课程名称过长。');
    if(!Number.isInteger(estimate)||estimate<1||estimate>600000)throw Error('请填写有效的预计总时长（1–600000 分钟）。');
    if(!Number.isInteger(progress)||progress<0||progress>100)throw Error('任务进度必须是 0 到 100 的整数。');
    if(!['high','medium','low'].includes(input.priority))throw Error('请选择重要程度。');
@@ -38,7 +38,7 @@
    const goalId=String(input.goalId||'');if(goalId&&!current().goals.some(g=>g.id===goalId))throw Error('所选学习目标不存在。');
    const selected=Array.isArray(input.resourceIds)?input.resourceIds.map(String):[];const known=new Set(resourceList.map(item=>item.id));const unavailable=(Array.isArray(existing?.resourceIds)?existing.resourceIds:[]).filter(id=>!known.has(id));const resourceIds=[...new Set([...selected,...unavailable])];
    const completed=progress===100;
-   return {...existing,title,notes,deadline,due,estimateMinutes:estimate,progress,priority:input.priority,goalId,resourceIds,completed,completedAt:completed?(existing?.completedAt||timestamp()):'',completedDate:completed?(existing?.completedDate||fmtDate(now())):''};
+   return {...existing,title,course,notes,deadline,due,estimateMinutes:estimate,progress,priority:input.priority,goalId,resourceIds,completed,completedAt:completed?(existing?.completedAt||timestamp()):'',completedDate:completed?(existing?.completedDate||fmtDate(now())):''};
   }
   function freshTask(values){return {id:uid(),createdAt:timestamp(),history:[{at:timestamp(),action:'create'}],title:'',notes:'',goalId:'',projectId:'',milestoneId:'',due:'',priority:'medium',kind:'task',frequency:'daily',logs:[],completed:false,completedAt:'',completedDate:'',...values};}
   function validateDraft(state){
@@ -50,7 +50,7 @@
   function applyValidation(check){draft.sessions=check.sessions;draft.unplanned=check.unplanned;draft.suggestions=check.warnings.map(reason=>({reason}));draft.totals.unplannedMinutes=check.unplanned.reduce((n,item)=>n+item.minutes,0);draft.totals.scheduledMinutes=check.sessions.reduce((n,item)=>n+item.minutes,0);draft.totals.lateMinutes=check.sessions.filter(item=>item.late).reduce((n,item)=>n+item.minutes,0);}
   function demoStore(){let state={version:1,profile:{},goals:[],tasks:[],records:[],trash:[],updatedAt:null,restart:emptyRestart()};return {snapshot:()=>copy(state),commit:next=>{state=copy(next);state.updatedAt=timestamp();return copy(state);}};}
   function startDemo(){
-   active=demoStore();mode='demo';phase='normal';invalidate();splitPreview=null;
+   active=demoStore();mode='demo';phase='normal';invalidate();splitPreview=null;aiDraft=null;
    const base=now().getTime(),hour=3600000;
    const tasks=[freshTask({title:'复习现代汉语第一章',deadline:iso(base+26*hour),due:fmtDate(base+26*hour),estimateMinutes:90,progress:0,priority:'high'}),freshTask({title:'完成英语阅读与错题复盘',deadline:iso(base+80*hour),due:fmtDate(base+80*hour),estimateMinutes:90,progress:0,priority:'medium'}),freshTask({title:'完成课程阅读作业',deadline:iso(base+150*hour),due:fmtDate(base+150*hour),estimateMinutes:60,progress:0,priority:'low'})];
    const slots=[{start:iso(base+hour),end:iso(base+3*hour)},{start:iso(base+25*hour),end:iso(base+27*hour)}];
@@ -65,10 +65,22 @@
    const lastConfirm=r.events.filter(e=>e.type==='plan_confirm').at(-1),tracked=state.tasks.filter(t=>Number(t.actualMinutes)>0),lastActivity=r.events.at(-1)?.at;
    const metrics={replans:r.events.filter(e=>e.type==='plan_confirm').length,actualMinutes:tracked.reduce((n,t)=>n+t.actualMinutes,0),completedAfterRepair:lastConfirm?state.tasks.filter(t=>t.completed&&Date.parse(t.completedAt)>=Date.parse(lastConfirm.at)).length:null,interruptions:r.events.filter(e=>e.type==='interruption'),timeComparisons:tracked.filter(t=>t.completed&&Number(t.estimateMinutes)>0).map(t=>({title:t.title,estimated:t.estimateMinutes,actual:t.actualMinutes}))};
    const nextAction=future.filter(s=>state.tasks.some(t=>t.id===s.taskId&&!t.completed&&!t.archived)).sort((a,b)=>Date.parse(a.start)-Date.parse(b.start))[0]||null;
-   return {tasks:state.tasks,goals:state.goals,resources:mode==='demo'?[]:resourceList,slots:r.slots,blockedSlots:r.blockedSlots,preferences:r.preferences,taskOrder:r.taskOrder||[],analysis,plan:draft,schedule:r.schedule,events:r.events,mode,demoOnly,demoPhase:phase,canUndo:!!r.undo,splitPreview,metrics,nextAction,returning:analysis.totals.overdueTasks>0||(lastActivity&&instant-Date.parse(lastActivity)>7*86400000)};
+   return {tasks:state.tasks,goals:state.goals,resources:mode==='demo'?[]:resourceList,slots:r.slots,blockedSlots:r.blockedSlots,preferences:r.preferences,taskOrder:r.taskOrder||[],analysis,plan:draft,schedule:r.schedule,events:r.events,mode,demoOnly,demoPhase:phase,canUndo:!!r.undo,splitPreview,aiDraft:aiDraft?copy(aiDraft):null,metrics,nextAction,returning:analysis.totals.overdueTasks>0||(lastActivity&&instant-Date.parse(lastActivity)>7*86400000)};
   }
   async function dispatch(action,payload={}){
    switch(action){
+   case 'ai-preview':{if(mode!=='real'||payload.mode!=='model')throw Error('AI 草案仅适用于当前登录账户。');const assistant=root?.LifeOSRestartAssistant||globalThis.LifeOSRestartAssistant;if(!assistant)throw Error('任务校验尚未就绪。');const value=assistant.validate('parse',payload.value);aiDraft={id:uid(),value,mode:'model'};break;}
+   case 'ai-cancel':aiDraft=null;break;
+   case 'ai-confirm':{
+    if(!aiDraft||mode!=='real'||payload.id!==aiDraft.id)throw Error('任务草案已失效，请重新生成。');
+    if(payload.confirmed!==true)throw Error('请确认截止时间、预计时长与任务字段。');
+    if(!payload.deadline)throw Error('请确认具体的截止日期与时间。');
+    const estimate=Number(payload.estimateMinutes);if(!Number.isInteger(estimate)||estimate<1||estimate>10080)throw Error('请核实预计总时长（1–10080 分钟），较大任务请手动拆分。');
+    const state=current();guard(state);const values=taskValues({...payload,id:undefined,progress:0},null),task=freshTask({...values,creationSource:'ai-confirmed'});state.tasks.push(task);
+    const computed=engine.plan(state.tasks,state.restart.slots,{...options(state.restart),now:new Date(now().getTime()+5*60000)});
+    event(state.restart,'task_ai_confirm','确认 AI 任务草案',values.title,task.id);state.restart.events.at(-1).backlogCount=engine.analyze(state.tasks,[],{now:now()}).totals.overdueTasks;
+    active.commit(state);const saved=current();draft=computed;draftBasis=fingerprint(saved);aiDraft=null;break;
+   }
    case 'move-task':{commit((state,r)=>{const ids=state.tasks.filter(t=>t.kind!=='habit'&&!t.archived&&!t.completed).map(t=>t.id);const ordered=[...(r.taskOrder||[]).filter(id=>ids.includes(id)),...ids.filter(id=>!(r.taskOrder||[]).includes(id))],i=ordered.indexOf(payload.id),j=i+Number(payload.direction);if(i<0||![-1,1].includes(Number(payload.direction)))throw Error('任务顺序无效。');if(j>=0&&j<ordered.length)[ordered[i],ordered[j]]=[ordered[j],ordered[i]];r.taskOrder=ordered;event(r,'task_order','调整任务安排顺序');});invalidate();break;}
    case 'save-preferences':{const preferences=engine.settings(payload);commit((state,r)=>{r.preferences=preferences;event(r,'availability','更新修复策略与学习偏好');});invalidate();break;}
    case 'add-daily-slots':{const slots=engine.dailySlots(payload);if(slots.length>31)throw Error('请最多设置 31 天。');commit((state,r)=>{r.slots.push(...slots);if(r.slots.length>1000)throw Error('时段过多，请先移除不再使用的时段。');event(r,'availability','添加每日学习时段');});invalidate();break;}
@@ -96,7 +108,7 @@
    case 'demo-reset':startDemo();break;
    case 'demo-start':startDemo();if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-active'},root.location.origin);break;
    case 'demo-disrupt':disruptDemo();break;
-   case 'demo-end':if(demoOnly){root?.parent?.postMessage({type:'lifeos-demo-exit'},root.location.origin);}else{active=store;mode='real';phase='';invalidate();splitPreview=null;if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-finished'},root.location.origin);}break;
+   case 'demo-end':if(demoOnly){root?.parent?.postMessage({type:'lifeos-demo-exit'},root.location.origin);}else{active=store;mode='real';phase='';invalidate();splitPreview=null;aiDraft=null;if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-finished'},root.location.origin);}break;
    default:throw Error('操作暂不可用。');
    }
   }

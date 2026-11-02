@@ -52,3 +52,6 @@
 @media(prefers-reduced-motion:reduce){.rs-workspace *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 .lifeos[data-restart-open=true] #liquidSculpture{visibility:hidden}
+
+/* AI intake remains a task form; no independent application shell. */
+.rs-ai-intake{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,1.2fr);gap:28px;align-items:center}.rs-ai-intake h2{margin:6px 0 12px}.rs-ai-intake textarea{resize:vertical;min-height:96px}.rs-ai-questions{padding:16px 18px;margin:16px 0;background:#18374666;border-left:2px solid #abd9e8;color:#c8dce4;font-size:13px;line-height:1.8}.rs-ai-questions ul{margin:8px 0;padding-left:20px}.rs-ai-confirm{margin:18px 0;color:#d8e8ef}.rs-ai-confirm input{flex:none}.rs-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:700px){.rs-ai-intake{grid-template-columns:1fr;gap:18px}.rs-ai-intake textarea{min-height:108px}.rs-ai-questions{padding:12px}}
