@@ -98,6 +98,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     dialog.close();dialog.style.transform='none';if(!animate)scene?.hidePanel(id,false);selected=null;
   }
   async function route(next,instant=false){
+    next=next.split('?')[0];
     const mine=++serial,returnId=selected;galleryReady=false;updateGalleryControls();stopAnimation();scene?.cancel();
     if(dialog.open)await closeDetail(!instant);
     if(mine!==serial)return;
@@ -105,6 +106,11 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     carrier.inert=true;root.setAttribute('aria-busy','true');onPrepare(next);
     if(!surfaceName){carrier.hidden=true;document.body.dataset.spatial='true';document.body.dataset.surface='';onView('spatial');}
     $('entranceCaption').hidden=next!=='entrance';$('entrancePortals').hidden=next!=='entrance';
+    if(next==='workbench'||next==='account'){
+      scene?.setActive(false);surfaceName=next;root.hidden=true;root.dataset.moving='false';root.dataset.transition='stable';root.removeAttribute('aria-busy');
+      carrier.hidden=false;carrier.inert=false;carrier.style.transform='none';carrier.style.clipPath='none';carrier.style.opacity='1';
+      document.body.dataset.surface=next;document.body.dataset.spatial='false';onView(next);return;
+    }
     const actualScene=await ensureScene();if(mine!==serial)return;actualScene?.setActive(true);root.dataset.moving='true';
     if(surfaceName){
       const outgoing=surfaceName;scrollPositions[outgoing]=carrier.scrollTop;
@@ -150,7 +156,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     if(location.hash===path){route(next);return;}
     if(replace){history.replaceState(null,'',location.pathname+path);route(next);}else location.hash=path;
   }
-  function hashRoute(){const match=location.hash.match(/^#space\/(entrance|gallery|account|workbench|memory\/[\w-]+)$/);route(match?match[1]:'entrance');}
+  function hashRoute(){const match=location.hash.match(/^#space\/(entrance|gallery|account|workbench|memory\/[\w-]+)(?:\?view=[\w-]+)?$/);route(match?match[1]:'workbench');}
   window.addEventListener('hashchange',hashRoute);
   root.querySelectorAll('[data-go]').forEach(button=>button.onclick=()=>navigate(button.dataset.go));
   document.querySelectorAll('[data-space-nav]').forEach(button=>button.onclick=()=>navigate(button.dataset.spaceNav));

@@ -16,6 +16,13 @@
  }
  function validate(action,value){
   if(!value||typeof value!=='object'||Array.isArray(value))throw Error('建议格式无效');
+  if(action==='understand'){
+   if(Object.keys(value).some(k=>!['intent','summary','firstStep','tasks','questions','adjustment'].includes(k))||!['create','adjust','material'].includes(value.intent))throw Error('建议意图无效');
+   if(typeof value.summary!=='string'||value.summary.length>600||typeof value.firstStep!=='string'||value.firstStep.length>400||!Array.isArray(value.tasks)||value.tasks.length>3)throw Error('行动建议无效');
+   if(!Array.isArray(value.questions)||value.questions.length>7||value.questions.some(q=>typeof q!=='string'||q.length>200))throw Error('待确认信息无效');
+   const a=value.adjustment;if(!a||!['today','tomorrow','unspecified'].includes(a.day)||!Number.isInteger(a.reductionMinutes)||a.reductionMinutes<0||a.reductionMinutes>1440||typeof a.unavailable!=='boolean')throw Error('时间变化无效');
+   return {...value,tasks:value.tasks.map(t=>validate('parse',t)),questions:[...value.questions],adjustment:{...a}};
+  }
   const keys={parse:['title','course','deadline','deadlineText','estimateMinutes','priority','notes','missingInformation'],split:['tasks','explanation'],explain:['explanation']}[action];if(!keys||Object.keys(value).some(k=>!keys.includes(k)))throw Error('建议包含未知字段');
   if(action==='explain'){if(typeof value.explanation!=='string'||value.explanation.length>3000)throw Error('解释格式无效');return {explanation:value.explanation};}
   if(action==='split'){if(!Array.isArray(value.tasks)||!value.tasks.length||value.tasks.length>12)throw Error('拆解数量无效');return {tasks:value.tasks.map(t=>validate('parse',t)),explanation:String(value.explanation||'').slice(0,3000)};}
@@ -29,7 +36,13 @@
   return {title,...extra,deadline:value.deadline||'',estimateMinutes:estimate||'',priority:value.priority||'medium',notes:value.notes||''};
  }
  async function suggest(action,input,{request,engine=root?.LifeOSRestartEngine,now=new Date()}={}){
-  if(request){try{const value=validate(action,await request(action,input));if(action==='split'&&(value.tasks.some(t=>!t.deadline||!t.estimateMinutes||Date.parse(t.deadline)<Date.parse(input.start)||Date.parse(t.deadline)>Date.parse(input.deadline))||value.tasks.reduce((n,t)=>n+t.estimateMinutes,0)!==input.availableMinutes))throw Error('拆解超出时间约束');return {mode:'model',value,notice:'真实 AI 任务草案，请核实后确认。'};}catch(error){if(action==='parse')throw error;/* Other optional explanations retain a labelled rules fallback. */}}
+  if(request){try{const value=validate(action,await request(action,input));if(action==='split'&&(value.tasks.some(t=>!t.deadline||!t.estimateMinutes||Date.parse(t.deadline)<Date.parse(input.start)||Date.parse(t.deadline)>Date.parse(input.deadline))||value.tasks.reduce((n,t)=>n+t.estimateMinutes,0)!==input.availableMinutes))throw Error('拆解超出时间约束');return {mode:'model',value,notice:'真实 AI 建议，确认后才保存。'};}catch(error){if(action==='parse'||action==='understand')throw error;}}
+  if(action==='understand'){
+   const parsed=parse(input.text,{now}),{title,estimateMinutes,priority,notes}=parsed;
+   const reduction=input.text.match(/(?:少了|减少)([一两二三四五六七八九十\d]+)(?:个)?(小时|分钟)/),changing=!!reduction||/没空|做不完/.test(input.text);
+   const adjustment={day:/明天/.test(input.text)?'tomorrow':/今天|今晚/.test(input.text)?'today':'unspecified',reductionMinutes:reduction?number(reduction[1])*(reduction[2]==='小时'?60:1):0,unavailable:/全天没空|一天都没空/.test(input.text)};
+   return {mode:'rules',value:{intent:changing?'adjust':'create',summary:input.text,firstStep:changing?'查看剩余时间下的行动顺序。':'从这项行动开始；你可以直接修改名称。',tasks:changing?[]:[{title,estimateMinutes,priority,notes,deadline:'',deadlineText:'',course:''}],questions:['当前为规则录入，没有调用 AI。'],adjustment},notice:'规则录入 · 没有调用 AI'};
+  }
   const value=action==='parse'?parse(input.text,{now}):action==='split'?engine.splitGoal(input):{explanation:'规则引擎已按所选策略校验可用时段、截止时间和剩余工作量。未安排与延期部分请单独确认；不会自动改变任务期限。'};
   return {mode:'rules',value,notice:request?'模型暂不可用，已回退规则模式。':'规则模式 · 未接入大模型'};
  }
