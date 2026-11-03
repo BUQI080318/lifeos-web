@@ -1,8 +1,8 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
 import {createLoadGate} from './workbench-loading.js';
-import {createAssistantRequest} from './assistant-client.js?v=ai-phase1-20261102';
-import {createSpatialExperience} from './cinematic.js?v=ai-phase1-20261102';
+import {createAssistantRequest} from './assistant-client.js?v=study-20261103';
+import {createSpatialExperience} from './cinematic.js?v=study-20261103';
 
 const $ = id => document.getElementById(id);
 const cfg = window.LifeOSCloudConfig;
@@ -79,7 +79,7 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=ai-phase1-20261102'+(workbenchDemo?'&demo=1':'');
+  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=study-20261103'+(workbenchDemo?'&demo=1':'');
   const frame=workbenchFrame,loading=document.createElement('div'),label=document.createElement('p'),retry=document.createElement('button');loading.className='workbench-loading';label.setAttribute('role','status');retry.type='button';retry.textContent='重新加载工作台';retry.onclick=()=>workbenchLoadGate?.retry();loading.append(label,retry);
   frame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(frame,loading);workbenchLoadGate?.destroy();
   workbenchLoadGate=createLoadGate({onChange:state=>{loading.hidden=state.status==='ready';retry.hidden=!state.canRetry;label.textContent=state.canRetry?'工作台加载较慢。可以重试；未保存的输入请先保留。':'正在打开学习工作台…';},onRetry:()=>{if(frame!==workbenchFrame)return;frame.src=frame.src.split('&retry=')[0]+'&retry='+Date.now();}});
@@ -95,6 +95,18 @@ function showWorkbench(){
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==workbenchFrame?.contentWindow)return;
   if(event.data?.type==='lifeos-workbench-ready'){workbenchLoadGate?.ready();workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);if(demoRequested&&!workbenchDemo)workbenchFrame.contentWindow.postMessage({type:'lifeos-demo-start'},location.origin);}
+  if(event.data?.type==='lifeos-memory-draft'){
+    const draft=event.data.draft;
+    if(!sessionUser||!ready||locked||recovering||workbenchDemo||demoRequested||event.data.userId!==fence.userId)return;
+    if(!draft||draft.category!=='milestone'||typeof draft.content!=='string'||!draft.content.trim()||draft.content.length>2000||typeof draft.source!=='string'||!draft.source.trim()||draft.source.length>500)return;
+    if($('memoryForm').elements.content.value.trim()){tell('你还有未保存的记忆内容，请先保存或取消后再创建成长记忆。',true);return;}
+    const ticket=fence.ticket();
+    spatial.navigate('account',false,{direct:true}).then(()=>{
+      if(!fence.valid(ticket)||!ready||workbenchDemo||demoRequested)return;
+      resetEditor();const form=$('memoryForm');form.elements.category.value='milestone';form.elements.content.value=draft.content.trim();form.elements.source.value=draft.source.trim();form.elements.ai_allowed.checked=false;
+      openMemoryComposer();tell('已根据真实学习记录预填。检查并编辑后，点击“保存到云端”才会保存。');
+    }).catch(error=>tell(errorText(error),true));
+  }
   if(event.data?.type==='lifeos-demo-active'){demoRequested=true;}
   if(event.data?.type==='lifeos-demo-finished'){demoRequested=false;}
   if(event.data?.type==='lifeos-demo-exit'){demoRequested=false;if(workbenchDemo){workbenchLoadGate?.destroy();workbenchFrame.remove();workbenchFrame=null;workbenchDemo=false;}spatial.navigate('entrance');}
@@ -104,9 +116,9 @@ window.LifeOSWorkspaceSession=()=>{
   const ticket=fence.ticket();
   return {userId:ticket.userId,storage:accountStorage(localStorage,ticket.userId,()=>fence.assert(ticket)),assertActive:()=>fence.assert(ticket),assistantRequest:cfg.assistantEnabled?createAssistantRequest({client,url:cfg.url,publishableKey:cfg.publishableKey,userId:ticket.userId,assertActive:()=>fence.assert(ticket)}):undefined};
 };
-$('openWorkbench').onclick=()=>spatial.navigate('workbench');
+$('openWorkbench').onclick=()=>spatial.navigate('workbench',false,{direct:true});
 $('demoLaunch').onclick=()=>{demoRequested=true;if(workbenchFrame&&!workbenchDemo)workbenchFrame.contentWindow?.postMessage({type:'lifeos-demo-start'},location.origin);spatial.navigate('workbench');};
-$('openAccount').onclick=()=>spatial.navigate('account');
+$('openAccount').onclick=()=>spatial.navigate('account',false,{direct:true});
 function featuredIds(){return Array.isArray(settings?.settings?.exhibition_ids)?settings.settings.exhibition_ids.filter(id=>typeof id==='string'):[];}
 async function toggleExhibit(id,show){
   if(exhibitionBusy)throw Error('正在保存展览设置，请稍候。');
@@ -190,10 +202,10 @@ async function applySession(session,event='') {
       if(verified.error || verified.data.user?.id!==ticket.userId)throw verified.error || Error('登录身份未通过验证，请重新登录。');
       sessionUser=verified.data.user;
       $('identity').textContent=sessionUser.email || '已登录账户';
-      if(recovering){spatial.navigate('account',true);$('reset').hidden=false;tell('账户已验证，请设置密码。');return;}
+      if(recovering){spatial.navigate('account',true,{direct:true});$('reset').hidden=false;tell('账户已验证，请设置密码。');return;}
       if(!demoRequested)$('workspace').hidden=false;
       await loadWorkspace(ticket,false);
-      if(!demoRequested)spatial.navigate(requestedSpace,true);
+      if(!demoRequested)spatial.navigate(requestedSpace,true,{direct:['workbench','account'].includes(requestedSpace)});
     }catch(error){
       if(fence.valid(ticket)){tell(errorText(error),true);if(!sessionUser&&!demoRequested){$('auth').hidden=false;$('workspace').hidden=true;}}
       throw error;

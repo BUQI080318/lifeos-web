@@ -3,11 +3,11 @@
  'use strict';
  const copy=value=>structuredClone(value), emptyRestart=()=>({version:1,slots:[],schedule:[],events:[],undo:null});
  const fmtDate=value=>{const d=new Date(value);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
- const dateValue=value=>{const d=new Date(value);if(!Number.isFinite(+d))throw Error('请填写有效的日期与时间。');const text=String(value);if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(text)){const local=`${fmtDate(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;if(local!==text)throw Error('日期或本地时间不存在，请重新填写。');}return d.toISOString();};
+ const dateValue=value=>{const d=new Date(value);if(!Number.isFinite(+d))throw Error('请填写有效的日期与时间。');const text=String(value),parts=text.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);if(parts){const calendar=new Date(Date.UTC(+parts[1],+parts[2]-1,+parts[3]));if(calendar.getUTCFullYear()!==+parts[1]||calendar.getUTCMonth()!==+parts[2]-1||calendar.getUTCDate()!==+parts[3]||parts[4]&&(+parts[4]>23||+parts[5]>59))throw Error('日期或本地时间不存在，请重新填写。');}if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(text)){const local=`${fmtDate(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;if(local!==text)throw Error('日期或本地时间不存在，请重新填写。');}return d.toISOString();};
  const iso=value=>new Date(value).toISOString();
  function createController({store,engine,now=()=>new Date(),uid=()=>crypto.randomUUID(),resources=[],demoOnly=false}){
   if(!store||!engine)throw Error('学习工作台尚未就绪。');
-  let active=store,mode='real',phase='',draft=null,splitPreview=null,aiDraft=null,draftBasis='',resourceList=resources;
+  let active=store,mode='real',phase='',draft=null,splitPreview=null,aiDraft=null,intentDraft=null,draftBasis='',resourceList=resources;
   const timestamp=()=>now().toISOString();
   function restart(state){
    if(state.restart==null)return {...emptyRestart(),preferences:engine.settings({}),blockedSlots:[]};
@@ -27,11 +27,12 @@
   const options=r=>({...r.preferences,blockedSlots:r.blockedSlots||[],taskOrder:r.taskOrder||[],now:now()});
   function invalidate(){draft=null;draftBasis='';}
   function fingerprint(state){return JSON.stringify({tasks:state.tasks,slots:state.restart.slots,schedule:state.restart.schedule,preferences:state.restart.preferences,blockedSlots:state.restart.blockedSlots,taskOrder:state.restart.taskOrder});}
+  function intentFingerprint(state){return JSON.stringify({plan:fingerprint(state),study:state.restart.study||null});}
   function taskValues(input,existing){
-   const title=String(input.title||'').trim(),notes=String(input.notes||'').trim(),course=String(input.course??existing?.course??'').trim(),estimate=Number(input.estimateMinutes),progress=Number(input.progress||0);
+   const title=String(input.title||'').trim(),notes=String(input.notes||'').trim(),course=String(input.course??existing?.course??'').trim(),estimate=Number(input.estimateMinutes??''),progress=Number(input.progress||0);
    if(!title||title.length>240)throw Error('请填写不超过 240 字的任务名称。');
    if(notes.length>30000)throw Error('任务说明过长。');if(course.length>120)throw Error('课程名称过长。');
-   if(!Number.isInteger(estimate)||estimate<1||estimate>600000)throw Error('请填写有效的预计总时长（1–600000 分钟）。');
+   if(!Number.isInteger(estimate)||estimate<0||estimate>600000)throw Error('请填写有效的预计总时长，或留空待估计。');
    if(!Number.isInteger(progress)||progress<0||progress>100)throw Error('任务进度必须是 0 到 100 的整数。');
    if(!['high','medium','low'].includes(input.priority))throw Error('请选择重要程度。');
    const deadline=input.deadline?dateValue(input.deadline):'',due=deadline?fmtDate(deadline):'';
@@ -50,7 +51,7 @@
   function applyValidation(check){draft.sessions=check.sessions;draft.unplanned=check.unplanned;draft.suggestions=check.warnings.map(reason=>({reason}));draft.totals.unplannedMinutes=check.unplanned.reduce((n,item)=>n+item.minutes,0);draft.totals.scheduledMinutes=check.sessions.reduce((n,item)=>n+item.minutes,0);draft.totals.lateMinutes=check.sessions.filter(item=>item.late).reduce((n,item)=>n+item.minutes,0);}
   function demoStore(){let state={version:1,profile:{},goals:[],tasks:[],records:[],trash:[],updatedAt:null,restart:emptyRestart()};return {snapshot:()=>copy(state),commit:next=>{state=copy(next);state.updatedAt=timestamp();return copy(state);}};}
   function startDemo(){
-   active=demoStore();mode='demo';phase='normal';invalidate();splitPreview=null;aiDraft=null;
+   active=demoStore();mode='demo';phase='normal';invalidate();splitPreview=null;aiDraft=null;intentDraft=null;
    const base=now().getTime(),hour=3600000;
    const tasks=[freshTask({title:'复习现代汉语第一章',deadline:iso(base+26*hour),due:fmtDate(base+26*hour),estimateMinutes:90,progress:0,priority:'high'}),freshTask({title:'完成英语阅读与错题复盘',deadline:iso(base+80*hour),due:fmtDate(base+80*hour),estimateMinutes:90,progress:0,priority:'medium'}),freshTask({title:'完成课程阅读作业',deadline:iso(base+150*hour),due:fmtDate(base+150*hour),estimateMinutes:60,progress:0,priority:'low'})];
    const slots=[{start:iso(base+hour),end:iso(base+3*hour)},{start:iso(base+25*hour),end:iso(base+27*hour)}];
@@ -65,10 +66,62 @@
    const lastConfirm=r.events.filter(e=>e.type==='plan_confirm').at(-1),tracked=state.tasks.filter(t=>Number(t.actualMinutes)>0),lastActivity=r.events.at(-1)?.at;
    const metrics={replans:r.events.filter(e=>e.type==='plan_confirm').length,actualMinutes:tracked.reduce((n,t)=>n+t.actualMinutes,0),completedAfterRepair:lastConfirm?state.tasks.filter(t=>t.completed&&Date.parse(t.completedAt)>=Date.parse(lastConfirm.at)).length:null,interruptions:r.events.filter(e=>e.type==='interruption'),timeComparisons:tracked.filter(t=>t.completed&&Number(t.estimateMinutes)>0).map(t=>({title:t.title,estimated:t.estimateMinutes,actual:t.actualMinutes}))};
    const nextAction=future.filter(s=>state.tasks.some(t=>t.id===s.taskId&&!t.completed&&!t.archived)).sort((a,b)=>Date.parse(a.start)-Date.parse(b.start))[0]||null;
-   return {tasks:state.tasks,goals:state.goals,resources:mode==='demo'?[]:resourceList,slots:r.slots,blockedSlots:r.blockedSlots,preferences:r.preferences,taskOrder:r.taskOrder||[],analysis,plan:draft,schedule:r.schedule,events:r.events,mode,demoOnly,demoPhase:phase,canUndo:!!r.undo,splitPreview,aiDraft:aiDraft?copy(aiDraft):null,metrics,nextAction,returning:analysis.totals.overdueTasks>0||(lastActivity&&instant-Date.parse(lastActivity)>7*86400000)};
+   return {tasks:state.tasks,goals:state.goals,resources:mode==='demo'?[]:resourceList,slots:r.slots,blockedSlots:r.blockedSlots,preferences:r.preferences,taskOrder:r.taskOrder||[],analysis,plan:draft,schedule:r.schedule,events:r.events,mode,demoOnly,demoPhase:phase,canUndo:!!r.undo,intentDraft:intentDraft?copy(intentDraft):null,study:r.study&&state.tasks.some(t=>t.id===r.study.taskId)?{...copy(r.study),note:state.tasks.find(t=>t.id===r.study.taskId)?.studyNote||''}:null,uiDrafts:copy(r.uiDrafts||{}),splitPreview,aiDraft:aiDraft?copy(aiDraft):null,metrics,nextAction,returning:analysis.totals.overdueTasks>0||(lastActivity&&instant-Date.parse(lastActivity)>7*86400000)};
   }
   async function dispatch(action,payload={}){
    switch(action){
+   case 'intent-preview':{
+    const assistant=root?.LifeOSRestartAssistant||globalThis.LifeOSRestartAssistant;if(!assistant)throw Error('AI 建议校验尚未就绪。');
+    const value=assistant.validate('understand',payload.value);intentDraft={id:uid(),value,accepted:[]};break;
+   }
+   case 'intent-cancel':intentDraft=null;break;
+   case 'intent-dismiss':{
+    const index=Number(payload.index);if(!intentDraft||!Number.isInteger(index)||!intentDraft.value.tasks[index])break;
+    if(intentDraft.accepted.includes(index))throw Error('这项行动已保存，不能从建议中移除。');
+    intentDraft.value.tasks.splice(index,1);intentDraft.accepted=intentDraft.accepted.filter(i=>i!==index).map(i=>i>index?i-1:i);break;
+   }
+   case 'intent-accept':{
+    const index=Number(payload.index),item=intentDraft?.value.tasks[index];if(!item||!Number.isInteger(index)||intentDraft.accepted.includes(index))throw Error('这项建议已保存或失效。');
+    const values=taskValues({...item,...payload,title:payload.title??item.title,estimateMinutes:payload.estimateMinutes??item.estimateMinutes,goalId:'',progress:0,resourceIds:payload.resourceIds||[]},null);
+    commit((state,r)=>{const task=freshTask({...values,creationSource:'suggestion-confirmed',deadlineText:item.deadlineText||''});state.tasks.push(task);event(r,'task_ai_confirm','确认学习行动',task.title,task.id);});
+    intentDraft.value.tasks[index]={...item,...values};intentDraft.accepted.push(index);invalidate();break;
+   }
+   case 'intent-adjust-preview':{
+    if(intentDraft?.value.intent!=='adjust')throw Error('请先描述计划变化。');
+    const planner=root?.LifeOSStudyPlanner||globalThis.LifeOSStudyPlanner;if(!planner)throw Error('计划调整尚未就绪。');const state=current();guard(state);const change={...intentDraft.value.adjustment,...payload};
+    const proposal=planner.adjust(state,change,engine,now());intentDraft.proposal=proposal;intentDraft.previewAt=timestamp();intentDraft.basis=intentFingerprint(state);intentDraft.value.adjustment=copy(proposal.change);break;
+   }
+   case 'intent-adjust-confirm':{
+    const proposal=intentDraft?.proposal;if(!proposal)throw Error('请先查看调整建议。');if(proposal.change.kind==='postpone'&&Date.parse(proposal.change.deadline)<=now().getTime())throw Error('新的截止时间已经过去，请重新计算建议。');if(proposal.change.kind==='time'&&fmtDate(intentDraft.previewAt)!==fmtDate(now()))throw Error('日期已变化，请重新计算建议。');if(proposal.needsTask||proposal.needsDeadline)throw Error('请先确认要调整的任务及新的截止时间。');
+    commit((state,r)=>{if(intentDraft.basis!==intentFingerprint(state))throw Error('任务或时间已有变化，请重新计算建议。');
+     const previous={tasks:copy(state.tasks),slots:copy(r.slots),schedule:copy(r.schedule),taskOrder:copy(r.taskOrder||[]),study:copy(r.study||null)};
+     if(proposal.timed){const check=engine.validateSessions(proposal.tasks,proposal.slots,proposal.plan.sessions,{...options(r),now:now()});if(!check.valid)throw Error('时间已变化，请重新计算建议。');r.slots=copy(proposal.slots);r.schedule=copy(check.sessions);}
+     state.tasks=copy(proposal.tasks);r.taskOrder=copy(proposal.order);
+     if(proposal.change.kind==='pause'&&r.study?.taskId===proposal.change.taskId)r.study={...r.study,status:'paused',updatedAt:timestamp()};
+     r.undo={type:'intent',previous,applied:intentFingerprint(state)};event(r,'plan_confirm','确认学习调整',proposal.note,proposal.change.taskId||'');
+    });intentDraft=null;invalidate();break;
+   }
+   case 'save-ui-draft':{
+    if(!['quick','task','quickSource'].includes(payload.key))throw Error('草稿类型无效。');let value=payload.value;
+    if(value!==null){if(payload.key==='quick'){if(typeof value!=='string'||value.length>2000)throw Error('学习需求最多 2000 字。');}
+     else if(payload.key==='quickSource'){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!['id','text'].includes(k))||typeof value.id!=='string'||!value.id||value.id.length>200||typeof value.text!=='string'||value.text.length>2000)throw Error('资料草稿来源格式无效或过长。');value=copy(value);}
+     else{if(!value||typeof value!=='object'||Array.isArray(value))throw Error('任务草稿格式无效。');const allowed=['id','title','course','notes','deadline','estimateMinutes','progress','priority','goalId','resourceIds','materialId'];if(Object.keys(value).some(k=>!allowed.includes(k))||JSON.stringify(value).length>40000)throw Error('任务草稿内容过长或含有未知字段。');value=copy(value);}
+    }
+    commit((state,r)=>{r.uiDrafts={...(r.uiDrafts||{})};if(value===null)delete r.uiDrafts[payload.key];else r.uiDrafts[payload.key]=value;});break;
+   }
+   case 'start-task':{
+    commit((state,r)=>{const task=state.tasks.find(t=>t.id===payload.id&&!t.completed&&!t.archived&&t.kind!=='habit');if(!task)throw Error('任务已完成、归档或不存在。');r.study={taskId:task.id,status:'active',updatedAt:timestamp()};event(r,'study_start','开始学习',task.title,task.id);});break;
+   }
+   case 'save-study-note':{
+    const note=payload.note;if(typeof note!=='string'||note.length>10000)throw Error('学习笔记最多 10000 字。');
+    commit((state,r)=>{const task=state.tasks.find(t=>t.id===payload.id&&!t.archived);if(!task)throw Error('任务已变化。');task.studyNote=note;if(r.study?.taskId===task.id)r.study.updatedAt=timestamp();});break;
+   }
+   case 'pause-study':{
+    commit((state,r)=>{if(!r.study||r.study.taskId!==payload.id||r.study.status==='completed')throw Error('当前学习任务已变化。');r.study.status='paused';r.study.updatedAt=timestamp();});break;
+   }
+   case 'complete-study':{
+    commit((state,r)=>{const task=state.tasks.find(t=>t.id===payload.id&&!t.completed&&!t.archived);if(!task)throw Error('任务已完成、归档或不存在。');task.preCompleteProgress=Math.min(99,Math.max(0,Number(task.progress)||0));task.progress=100;task.completed=true;task.completedAt=timestamp();task.completedDate=fmtDate(now());task.history=[...(task.history||[]),{at:timestamp(),action:'complete'}];if(r.study?.taskId===task.id)r.study={...r.study,status:'completed',updatedAt:timestamp()};event(r,'task_complete','完成学习任务',task.title,task.id);});invalidate();break;
+   }
    case 'ai-preview':{if(mode!=='real'||payload.mode!=='model')throw Error('AI 草案仅适用于当前登录账户。');const assistant=root?.LifeOSRestartAssistant||globalThis.LifeOSRestartAssistant;if(!assistant)throw Error('任务校验尚未就绪。');const value=assistant.validate('parse',payload.value);aiDraft={id:uid(),value,mode:'model'};break;}
    case 'ai-cancel':aiDraft=null;break;
    case 'ai-confirm':{
@@ -92,8 +145,8 @@
    case 'record-time':{const minutes=Number(payload.minutes);if(!Number.isInteger(minutes)||minutes<1||minutes>1440)throw Error('请填写本次实际用时（1–1440 分钟）。');commit((state,r)=>{const t=state.tasks.find(t=>t.id===payload.id);if(!t)throw Error('任务不存在。');t.actualMinutes=(Number(t.actualMinutes)||0)+minutes;event(r,'study_time','记录实际学习时间',`${t.title} · ${minutes} 分钟`,t.id);});break;}
    case 'record-interruption':{const reason=String(payload.reason||'').trim();if(!reason||reason.length>300)throw Error('请填写 1–300 字的中断原因。');commit((state,r)=>event(r,'interruption','记录中断原因',reason));break;}
    case 'save-task':{commit((state,r)=>{const existing=payload.id?state.tasks.find(t=>t.id===payload.id):null;if(payload.id&&!existing)throw Error('任务不存在，请刷新页面。');const values=taskValues(payload,existing);if(existing){const i=state.tasks.indexOf(existing);state.tasks[i]={...values,history:[...(existing.history||[]),{at:timestamp(),action:'edit'}]};event(r,'task_edit','修改学习任务',values.title);const before=existing.deadline||existing.due,after=values.deadline||values.due;if(before&&after&&Date.parse(after)>Date.parse(before)){state.tasks[i].delayCount=(Number(existing.delayCount)||0)+1;event(r,'delay','任务截止延期',`${values.title}：${new Date(before).toLocaleString('zh-CN')} → ${new Date(after).toLocaleString('zh-CN')}`,existing.id);}}else{state.tasks.push(freshTask(values));event(r,'task_create','添加学习任务',values.title);}});invalidate();break;}
-   case 'toggle-task':{commit((state,r)=>{const task=state.tasks.find(t=>t.id===payload.id);if(!task)throw Error('任务不存在。');task.completed=!task.completed;if(task.completed){task.preCompleteProgress=Math.min(99,Math.max(0,Number(task.progress)||0));task.progress=100;}else task.progress=Math.min(99,Math.max(0,Number(task.preCompleteProgress)||0));task.completedAt=task.completed?timestamp():'';task.completedDate=task.completed?fmtDate(now()):'';task.history=[...(task.history||[]),{at:timestamp(),action:'edit'}];event(r,'task_complete',task.completed?'完成学习任务':'重新打开学习任务',task.title);});invalidate();break;}
-   case 'delete-task':{commit((state,r)=>{const i=state.tasks.findIndex(t=>t.id===payload.id);if(i<0)throw Error('任务不存在。');const [task]=state.tasks.splice(i,1);state.trash.push({kind:'tasks',record:copy(task),deletedAt:timestamp()});r.schedule=r.schedule.filter(s=>s.taskId!==task.id);r.undo=null;event(r,'task_delete','移除学习任务',task.title+'（可在数据与设置恢复）');});invalidate();break;}
+   case 'toggle-task':{commit((state,r)=>{const task=state.tasks.find(t=>t.id===payload.id);if(!task)throw Error('任务不存在。');task.completed=!task.completed;if(task.completed){task.preCompleteProgress=Math.min(99,Math.max(0,Number(task.progress)||0));task.progress=100;}else task.progress=Math.min(99,Math.max(0,Number(task.preCompleteProgress)||0));task.completedAt=task.completed?timestamp():'';task.completedDate=task.completed?fmtDate(now()):'';if(task.completed&&r.study?.taskId===task.id)r.study={...r.study,status:'completed',updatedAt:timestamp()};task.history=[...(task.history||[]),{at:timestamp(),action:'edit'}];event(r,'task_complete',task.completed?'完成学习任务':'重新打开学习任务',task.title);});invalidate();break;}
+   case 'delete-task':{commit((state,r)=>{const i=state.tasks.findIndex(t=>t.id===payload.id);if(i<0)throw Error('任务不存在。');const [task]=state.tasks.splice(i,1);state.trash.push({kind:'tasks',record:copy(task),deletedAt:timestamp()});r.schedule=r.schedule.filter(s=>s.taskId!==task.id);if(r.study?.taskId===task.id)r.study=null;r.undo=null;event(r,'task_delete','移除学习任务',task.title+'（可在数据与设置恢复）');});invalidate();break;}
    case 'add-slot':{const start=dateValue(payload.start),end=dateValue(payload.end);if(Date.parse(end)<=Date.parse(start))throw Error('结束时间必须晚于开始时间。');if(Date.parse(end)<=now().getTime())throw Error('请添加未来可用时段。');commit((state,r)=>{r.slots.push({start,end});event(r,'availability','添加可用时间');});invalidate();break;}
    case 'remove-slot':{commit((state,r)=>{if(!Number.isInteger(payload.index)||!r.slots[payload.index])throw Error('时段不存在。');r.slots.splice(payload.index,1);event(r,'availability','调整可用时间');});invalidate();break;}
    case 'generate-plan':{const state=current();guard(state);draft=engine.plan(state.tasks,state.restart.slots,{now:new Date(now().getTime()+5*60000),...options(state.restart),now:new Date(now().getTime()+5*60000)});draftBasis=fingerprint(state);break;}
@@ -101,19 +154,19 @@
    case 'edit-sessions':{const state=current();guard(state);if(!draft)throw Error('请先生成方案。');const edits=action==='edit-session'?[payload]:payload.edits;if(!Array.isArray(edits))throw Error('学习时段格式无效。');const previous=copy(draft.sessions);try{const seen=new Set();for(const edit of edits){if(seen.has(edit.id))throw Error('学习时段重复。');seen.add(edit.id);const index=draft.sessions.findIndex(s=>s.id===edit.id);if(index<0)throw Error('学习时段不存在。');const before=draft.sessions[index],start=dateValue(edit.start),end=dateValue(edit.end);if(Date.parse(end)-Date.parse(start)!==before.minutes*60000)throw Error('请保持该学习时段原有时长，只调整开始和结束时间。');draft.sessions[index]={...before,start,end,reason:'由你手动调整学习时段。'};}const check=validateDraft(state);applyValidation(check);draft.sessions.sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));}catch(error){draft.sessions=previous;throw error;}break;}
    case 'confirm-plan':{commit((state,r)=>{const check=validateDraft(state);applyValidation(check);if(!draft.sessions.length)throw Error('方案没有可确认的学习时段，请先补充时间或任务时长。');r.undo={previous:copy(r.schedule),applied:copy(draft.sessions)};r.schedule=copy(draft.sessions);event(r,'plan_confirm','确认计划修复',`安排 ${draft.sessions.length} 个学习时段；未安排 ${draft.totals.unplannedMinutes} 分钟。`);});if(mode==='demo')phase='recovered';invalidate();break;}
    case 'cancel-plan':invalidate();break;
-   case 'undo-plan':{commit((state,r)=>{if(!r.undo)throw Error('没有可撤销的计划调整。');if(JSON.stringify(r.schedule)!==JSON.stringify(r.undo.applied))throw Error('当前计划已变化，无法安全撤销。');r.schedule=copy(r.undo.previous);r.undo=null;event(r,'plan_undo','撤销上次计划调整');});invalidate();break;}
+   case 'undo-plan':{commit((state,r)=>{if(!r.undo)throw Error('没有可撤销的计划调整。');if(r.undo.type==='intent'){if(intentFingerprint(state)!==r.undo.applied)throw Error('当前任务或计划已变化，无法安全撤销。');const previous=copy(r.undo.previous);state.tasks=previous.tasks;r.slots=previous.slots;r.schedule=previous.schedule;r.taskOrder=previous.taskOrder;r.study=previous.study;r.undo=null;event(r,'plan_undo','撤销上次学习调整');return;}if(JSON.stringify(r.schedule)!==JSON.stringify(r.undo.applied))throw Error('当前计划已变化，无法安全撤销。');r.schedule=copy(r.undo.previous);r.undo=null;event(r,'plan_undo','撤销上次计划调整');});invalidate();break;}
    case 'split-preview':{const fallback=engine.splitGoal(payload);if(root?.LifeOSRestartAssistant){const result=await root.LifeOSRestartAssistant.suggest('split',payload,{engine,request:mode==='demo'?undefined:root.LifeOSAssistantRequest});splitPreview={...result.value,explanation:result.notice+'。'+result.value.explanation};}else splitPreview=fallback;break;}
    case 'split-confirm':{if(!splitPreview?.tasks?.length)throw Error('请先生成拆解建议。');commit((state,r)=>{for(const t of splitPreview.tasks)state.tasks.push(freshTask(taskValues({...t,goalId:'',resourceIds:[]},null)));event(r,'task_split','确认规则拆解',`新增 ${splitPreview.tasks.length} 项学习任务。`);});splitPreview=null;invalidate();break;}
    case 'split-cancel':splitPreview=null;break;
    case 'demo-reset':startDemo();break;
    case 'demo-start':startDemo();if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-active'},root.location.origin);break;
    case 'demo-disrupt':disruptDemo();break;
-   case 'demo-end':if(demoOnly){root?.parent?.postMessage({type:'lifeos-demo-exit'},root.location.origin);}else{active=store;mode='real';phase='';invalidate();splitPreview=null;aiDraft=null;if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-finished'},root.location.origin);}break;
+   case 'demo-end':if(demoOnly){root?.parent?.postMessage({type:'lifeos-demo-exit'},root.location.origin);}else{active=store;mode='real';phase='';invalidate();splitPreview=null;aiDraft=null;intentDraft=null;if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-finished'},root.location.origin);}break;
    default:throw Error('操作暂不可用。');
    }
   }
   if(demoOnly)startDemo();
-  return {getModel,dispatch,setResources(items){resourceList=Array.isArray(items)?items:[];}};
+  return {getModel,dispatch,memoryDraft(taskId){if(mode!=='real'||demoOnly)throw Error('示例记录不能写入真实记忆。');const task=current().tasks.find(t=>t.id===taskId&&t.completed&&t.completedAt);if(!task)throw Error('请选择真实完成的学习任务。');const date=new Date(task.completedAt);if(!Number.isFinite(+date))throw Error('完成日期无效，无法生成记忆草案。');return {category:'milestone',content:`${fmtDate(date)} 完成了「${String(task.title).slice(0,240)}」。`,source:('lifeos:task:'+task.id).slice(0,500)};},setResources(items){resourceList=Array.isArray(items)?items:[];}};
  }
  const api={createController};if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.LifeOSRestartModel=api;
 })(typeof window!=='undefined'?window:null);

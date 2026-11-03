@@ -23,3 +23,5 @@ body[data-spatial=true]:has(#spatialExperience[data-renderer=fallback]){overflow
 #spatialExperience[data-renderer=fallback] #galleryTools{position:relative;inset:auto;width:max-content;max-width:100%;flex-wrap:wrap;margin:22px 0}
 #spatialExperience[data-renderer=fallback] #galleryEmpty{position:relative;inset:auto;transform:none;margin:22px 0}
 @media(max-width:650px){.space-nav button{min-height:44px}#spatialExperience[data-renderer=fallback]{padding-top:30px}#spatialExperience[data-renderer=fallback] #galleryTools{width:100%}}
+
+#spaceSkip{position:absolute;right:5vw;bottom:26px;z-index:8;padding:10px 18px;background:#102c38e8;border:1px solid #99b9c86b;color:#d8e8ed}#spaceSkip[hidden]{display:none}

@@ -28,6 +28,8 @@ try {
   document.documentElement.className=page.documentElement.className;
   document.head.replaceChildren(...page.head.childNodes);
   document.body.replaceChildren(...page.body.childNodes);
+  // Fetch together, execute below in the original dependency order.
+  for(const original of scripts){const src=original.getAttribute('src');if(!src)continue;const preload=document.createElement('link');preload.rel='preload';preload.as='script';preload.href=src;document.head.append(preload);}
   document.body.style.visibility='hidden';document.body.setAttribute('aria-busy','true');
   const loading=document.createElement('p');loading.id='state';loading.setAttribute('role','status');loading.textContent='正在打开当前账户的工作台…';
   loading.style.cssText='visibility:visible;position:fixed;inset:0;display:grid;place-items:center;margin:0;background:#071320;color:#b7cbd7;z-index:9999';document.body.append(loading);
