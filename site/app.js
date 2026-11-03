@@ -1,7 +1,7 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
 import {createLoadGate} from './workbench-loading.js?v=study-fast-20261103';
-import {createAssistantRequest} from './assistant-client.js?v=study-20261103';
+import {createAssistantRequest} from './assistant-client.js?v=ai-retry-20261103';
 import {createSpatialExperience} from './cinematic.js?v=study-20261103';
 
 const $ = id => document.getElementById(id);

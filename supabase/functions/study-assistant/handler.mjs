@@ -96,7 +96,12 @@ function systemPrompt(action){
  return boundary+'Return JSON {"explanation":"中文解释"}, max3000 characters. Explain only the supplied rule-calculated totals and strategy. Never invent schedules, deadlines or availability. Unplanned work remains unplanned.';
 }
 function usageOf(output){const p=output?.usage?.prompt_tokens,c=output?.usage?.completion_tokens;return Number.isInteger(p)&&p>=0&&Number.isInteger(c)&&c>=0?{prompt:p,completion:c}:null;}
-export function createHandler({env,fetcher=fetch,now=()=>new Date()}){
+function providerRetryAfter(value,now){
+ const text=typeof value==='string'?value.trim():'';
+ const seconds=text?(Number.isFinite(Number(text))?Number(text):(Date.parse(text)-now.getTime())/1000):NaN;
+ return String(Number.isFinite(seconds)?Math.max(1,Math.min(300,Math.ceil(seconds))):30);
+}
+export function createHandler({env,fetcher=fetch,now=()=>new Date(),logger=record=>console.warn(JSON.stringify(record))}){
  return async req=>{
   const allowed=env.AI_ALLOWED_ORIGIN||'https://buqi080318.github.io',origin=req.headers.get('origin');
   const headers={'Access-Control-Allow-Origin':allowed,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS','Access-Control-Expose-Headers':'Retry-After','Vary':'Origin','Cache-Control':'no-store'};
@@ -134,9 +139,20 @@ export function createHandler({env,fetcher=fetch,now=()=>new Date()}){
     reject(429,rate?'RATE_LIMITED':'DAILY_QUOTA_EXCEEDED',rate?'调用过于频繁，请稍后重试。':quota.reason==='global_limit'?'AI 服务今日总额度已用完，请继续手动创建或稍后再试。':'今日 AI 调用额度已用完，请继续手动创建或稍后再试。');
    }
    let status='provider_error',usage=null,value,providerFailure;
+   // Only operational metadata is logged. Never log provider bodies, prompts, users or credentials.
+   const diagnose=httpStatus=>{try{logger({requestId,model,httpStatus});}catch{}};
    try{
     const result=await fetcher('https://api.deepseek.com/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+env.DEEPSEEK_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model,thinking:{type:'disabled'},max_tokens:MAX_OUTPUT,response_format:{type:'json_object'},temperature:.2,stream:false,messages:[{role:'system',content:system},{role:'user',content:encoded}]}),signal:AbortSignal.timeout(22000)});
-    if(!result.ok){if(result.status===402)providerFailure=new BoundaryError(402,'PROVIDER_BALANCE','AI 服务余额不足，请使用手动创建并联系管理员。');else if(result.status===429)providerFailure=new BoundaryError(429,'PROVIDER_RATE_LIMITED','模型服务暂时限流，请稍后重试或手动创建。');else providerFailure=new BoundaryError(502,'MODEL_UNAVAILABLE','模型服务暂不可用，请稍后重试或手动创建。');}
+    if(!result.ok){
+     diagnose(result.status);
+     if(result.status===429||result.status>=500)headers['Retry-After']=providerRetryAfter(result.headers.get('Retry-After'),now());
+     if(result.status===402)providerFailure=new BoundaryError(402,'PROVIDER_BALANCE','AI 服务余额不足，请使用手动创建并联系管理员。');
+     else if(result.status===429)providerFailure=new BoundaryError(429,'PROVIDER_RATE_LIMITED','模型服务暂时限流，请稍后重试或手动创建。');
+     else if([401,403].includes(result.status))providerFailure=new BoundaryError(503,'PROVIDER_AUTH','模型服务凭证验证失败，请联系管理员检查服务端配置；仍可手动创建任务。');
+     else if([400,404,422].includes(result.status))providerFailure=new BoundaryError(503,'PROVIDER_CONFIG','模型服务请求配置异常，请联系管理员处理；仍可手动创建任务。');
+     else if(result.status>=500)providerFailure=new BoundaryError(503,'PROVIDER_UNAVAILABLE','模型服务暂时故障，请稍后重试；仍可手动创建任务。');
+     else providerFailure=new BoundaryError(502,'MODEL_UNAVAILABLE','模型服务暂不可用，请稍后重试或手动创建。');
+    }
     else{
      let output;try{output=JSON.parse(await readLimited(result,131072));}catch{status='invalid_output';providerFailure=new BoundaryError(502,'MODEL_OUTPUT_INVALID','模型返回格式无效，未保存任何任务，请重试或手动创建。');}
      if(output){usage=usageOf(output);const choice=output.choices?.[0],content=choice?.message?.content;
@@ -144,7 +160,7 @@ export function createHandler({env,fetcher=fetch,now=()=>new Date()}){
       else try{if(choice.finish_reason!=='stop'||typeof content!=='string'||!content.trim()||content.length>20000)throw Error();value=validateOutput(action,JSON.parse(content),input);status='success';}catch{status='invalid_output';providerFailure=new BoundaryError(502,'MODEL_OUTPUT_INVALID','模型草案未通过校验，未保存任何任务，请重试或手动创建。');}
      }
     }
-   }catch(error){const timeout=error?.name==='TimeoutError'||error?.name==='AbortError';status=timeout?'timeout':'provider_error';providerFailure=new BoundaryError(timeout?504:502,timeout?'MODEL_TIMEOUT':'MODEL_UNAVAILABLE',timeout?'模型响应超时，没有自动重试，请稍后再试或手动创建。':'模型服务连接失败，请稍后重试或手动创建。');}
+   }catch(error){diagnose(null);const timeout=error?.name==='TimeoutError'||error?.name==='AbortError';status=timeout?'timeout':'provider_error';providerFailure=new BoundaryError(timeout?504:502,timeout?'MODEL_TIMEOUT':'MODEL_UNAVAILABLE',timeout?'模型响应超时，没有自动重试，请稍后再试或手动创建。':'模型服务连接失败，请稍后重试或手动创建。');}
    // Unknown usage is NULL: the ledger retains the conservative reservation, never refunds blindly.
    try{const result=await rpc('finish_ai_task_request',{p_user:user.id,p_request:requestId,p_status:status,p_model:model,p_prompt_tokens:usage?.prompt??null,p_completion_tokens:usage?.completion??null});if(!result.ok||await result.json()!==true)throw Error();}catch{reject(503,'USAGE_UNAVAILABLE','无法完成服务端用量记录，草案未接纳，请稍后重试。');}
    if(providerFailure)throw providerFailure;
