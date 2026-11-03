@@ -1,4 +1,4 @@
-/* Account-scoped state adapter. A proposed plan is memory-only until confirmed. */
+/* Account-scoped state adapter. Drafts stay local; tasks and plans require confirmation. */
 (function(root){
  'use strict';
  const copy=value=>structuredClone(value), emptyRestart=()=>({version:1,slots:[],schedule:[],events:[],undo:null});
@@ -7,7 +7,7 @@
  const iso=value=>new Date(value).toISOString();
  function createController({store,engine,now=()=>new Date(),uid=()=>crypto.randomUUID(),resources=[],demoOnly=false}){
   if(!store||!engine)throw Error('学习工作台尚未就绪。');
-  let active=store,mode='real',phase='',draft=null,splitPreview=null,aiDraft=null,intentDraft=null,draftBasis='',resourceList=resources;
+  let active=store,mode='real',phase='',draft=null,splitPreview=null,aiDraft=null,intentDraft=null,intentDraftError='',draftBasis='',resourceList=resources;
   const timestamp=()=>now().toISOString();
   function restart(state){
    if(state.restart==null)return {...emptyRestart(),preferences:engine.settings({}),blockedSlots:[]};
@@ -15,6 +15,40 @@
    return {...copy(r),preferences:engine.settings(r.preferences||{}),blockedSlots:Array.isArray(r.blockedSlots)?copy(r.blockedSlots):[]};
   }
   function current(){const state=active.snapshot();state.restart=restart(state);return state;}
+  const assistant=()=>root?.LifeOSRestartAssistant||globalThis.LifeOSRestartAssistant;
+  const contextAPI=()=>root?.LifeOSStudyContext||globalThis.LifeOSStudyContext;
+  const editableFields=['title','course','deadline','estimateMinutes','priority','notes'];
+  function intentEdits(values){
+   if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).some(key=>!editableFields.includes(key)))throw Error('建议草稿含有未知字段。');
+   const output={};for(const [key,value]of Object.entries(values)){
+    if(!['string','number'].includes(typeof value)||!Number.isFinite(typeof value==='number'?value:0))throw Error('建议草稿字段格式无效。');
+    if(String(value).length>({title:240,course:120,deadline:40,estimateMinutes:10,priority:10,notes:2000}[key]))throw Error('建议草稿字段过长。');
+    output[key]=value;
+   }return output;
+  }
+  function localIntent(raw){
+   if(!raw||typeof raw!=='object'||Array.isArray(raw)||typeof raw.id!=='string'||!raw.id||raw.id.length>200)throw Error('建议草稿格式无效。');
+   const api=assistant();if(!api)throw Error('AI 建议校验尚未就绪。');
+   const context=raw.context==null?undefined:copy(raw.context),references=copy(raw.references||{});
+   if(context!==undefined&&new TextEncoder().encode(JSON.stringify(context)).length>16384)throw Error('建议参考内容过长。');
+   if(!references||typeof references!=='object'||Array.isArray(references)||Object.keys(references).length>8)throw Error('任务引用格式无效。');
+   for(const [ref,entry]of Object.entries(references))if(!/^t[1-8]$/.test(ref)||!entry||typeof entry!=='object'||Array.isArray(entry)||Object.keys(entry).some(key=>!['id','signature'].includes(key))||typeof entry.id!=='string'||!entry.id||entry.id.length>200||typeof entry.signature!=='string'||entry.signature.length>2500)throw Error('任务引用格式无效。');
+   const value=api.validate('understand',raw.value,{context}),accepted=raw.accepted||[],edits={};
+   if(!Array.isArray(accepted)||accepted.some(index=>!Number.isInteger(index)||index<0||index>=value.tasks.length)||new Set(accepted).size!==accepted.length)throw Error('建议确认状态无效。');
+   if(raw.edits!=null&&(!raw.edits||typeof raw.edits!=='object'||Array.isArray(raw.edits)))throw Error('建议草稿字段格式无效。');
+   for(const [index,fields]of Object.entries(raw.edits||{})){if(!/^[0-2]$/.test(index)||!value.tasks[Number(index)]||accepted.includes(Number(index)))throw Error('建议草稿位置无效。');edits[index]=intentEdits(fields);}
+   const adjustmentTaskId=raw.adjustmentTaskId||'';if(typeof adjustmentTaskId!=='string'||adjustmentTaskId.length>200)throw Error('任务引用格式无效。');
+   return {id:raw.id,value,accepted:[...accepted],references,edits,...(context===undefined?{}:{context}),...(adjustmentTaskId?{adjustmentTaskId}:{})};
+  }
+  function compactIntent(value){return value?localIntent({id:value.id,value:value.value,accepted:value.accepted,references:value.references,edits:value.edits,context:value.context,adjustmentTaskId:value.adjustmentTaskId}):null;}
+  function writeIntent(r,value){r.uiDrafts={...(r.uiDrafts||{})};if(value)r.uiDrafts.intent=compactIntent(value);else delete r.uiDrafts.intent;}
+  function persistIntent(value){commit((state,r)=>writeIntent(r,value));intentDraft=value;intentDraftError='';}
+  function restoreIntent(){intentDraft=null;intentDraftError='';const raw=current().restart.uiDrafts?.intent;if(raw)try{intentDraft=localIntent(raw);}catch{intentDraftError='上次建议草稿无法恢复，原任务未改动。请重新描述需求。';}}
+  function referencedTask(value,index,state){
+   const ref=value.value.tasks[index]?.taskRef,entry=value.references?.[ref],task=entry&&state.tasks.find(t=>t.id===entry.id&&!t.completed&&!t.archived&&t.kind!=='habit');
+   if(!task||!contextAPI()?.signature||contextAPI().signature(task)!==entry.signature)throw Error('参考任务已变化、完成或失效，请重新获取建议。');
+   return task;
+  }
   function guard(state){
    if(active.readError)throw Error('原数据读取失败，请先导出原始数据或恢复备份。');
    if(!active.storage)return;
@@ -51,7 +85,7 @@
   function applyValidation(check){draft.sessions=check.sessions;draft.unplanned=check.unplanned;draft.suggestions=check.warnings.map(reason=>({reason}));draft.totals.unplannedMinutes=check.unplanned.reduce((n,item)=>n+item.minutes,0);draft.totals.scheduledMinutes=check.sessions.reduce((n,item)=>n+item.minutes,0);draft.totals.lateMinutes=check.sessions.filter(item=>item.late).reduce((n,item)=>n+item.minutes,0);}
   function demoStore(){let state={version:1,profile:{},goals:[],tasks:[],records:[],trash:[],updatedAt:null,restart:emptyRestart()};return {snapshot:()=>copy(state),commit:next=>{state=copy(next);state.updatedAt=timestamp();return copy(state);}};}
   function startDemo(){
-   active=demoStore();mode='demo';phase='normal';invalidate();splitPreview=null;aiDraft=null;intentDraft=null;
+   active=demoStore();mode='demo';phase='normal';invalidate();splitPreview=null;aiDraft=null;intentDraft=null;intentDraftError='';
    const base=now().getTime(),hour=3600000;
    const tasks=[freshTask({title:'复习现代汉语第一章',deadline:iso(base+26*hour),due:fmtDate(base+26*hour),estimateMinutes:90,progress:0,priority:'high'}),freshTask({title:'完成英语阅读与错题复盘',deadline:iso(base+80*hour),due:fmtDate(base+80*hour),estimateMinutes:90,progress:0,priority:'medium'}),freshTask({title:'完成课程阅读作业',deadline:iso(base+150*hour),due:fmtDate(base+150*hour),estimateMinutes:60,progress:0,priority:'low'})];
    const slots=[{start:iso(base+hour),end:iso(base+3*hour)},{start:iso(base+25*hour),end:iso(base+27*hour)}];
@@ -66,30 +100,45 @@
    const lastConfirm=r.events.filter(e=>e.type==='plan_confirm').at(-1),tracked=state.tasks.filter(t=>Number(t.actualMinutes)>0),lastActivity=r.events.at(-1)?.at;
    const metrics={replans:r.events.filter(e=>e.type==='plan_confirm').length,actualMinutes:tracked.reduce((n,t)=>n+t.actualMinutes,0),completedAfterRepair:lastConfirm?state.tasks.filter(t=>t.completed&&Date.parse(t.completedAt)>=Date.parse(lastConfirm.at)).length:null,interruptions:r.events.filter(e=>e.type==='interruption'),timeComparisons:tracked.filter(t=>t.completed&&Number(t.estimateMinutes)>0).map(t=>({title:t.title,estimated:t.estimateMinutes,actual:t.actualMinutes}))};
    const nextAction=future.filter(s=>state.tasks.some(t=>t.id===s.taskId&&!t.completed&&!t.archived)).sort((a,b)=>Date.parse(a.start)-Date.parse(b.start))[0]||null;
-   return {tasks:state.tasks,goals:state.goals,resources:mode==='demo'?[]:resourceList,slots:r.slots,blockedSlots:r.blockedSlots,preferences:r.preferences,taskOrder:r.taskOrder||[],analysis,plan:draft,schedule:r.schedule,events:r.events,mode,demoOnly,demoPhase:phase,canUndo:!!r.undo,intentDraft:intentDraft?copy(intentDraft):null,study:r.study&&state.tasks.some(t=>t.id===r.study.taskId)?{...copy(r.study),note:state.tasks.find(t=>t.id===r.study.taskId)?.studyNote||''}:null,uiDrafts:copy(r.uiDrafts||{}),splitPreview,aiDraft:aiDraft?copy(aiDraft):null,metrics,nextAction,returning:analysis.totals.overdueTasks>0||(lastActivity&&instant-Date.parse(lastActivity)>7*86400000)};
+   const visibleIntent=intentDraft?copy(intentDraft):null;if(visibleIntent&&visibleIntent.value.intent!=='focus')for(const [index,fields]of Object.entries(visibleIntent.edits||{}))visibleIntent.value.tasks[index]={...visibleIntent.value.tasks[index],...fields};
+   return {tasks:state.tasks,goals:state.goals,resources:mode==='demo'?[]:resourceList,slots:r.slots,blockedSlots:r.blockedSlots,preferences:r.preferences,taskOrder:r.taskOrder||[],analysis,plan:draft,schedule:r.schedule,events:r.events,mode,demoOnly,demoPhase:phase,canUndo:!!r.undo,aiContextConsent:r.aiContextConsent===true,intentDraft:visibleIntent,intentDraftError,study:r.study&&state.tasks.some(t=>t.id===r.study.taskId)?{...copy(r.study),note:state.tasks.find(t=>t.id===r.study.taskId)?.studyNote||''}:null,uiDrafts:copy(r.uiDrafts||{}),splitPreview,aiDraft:aiDraft?copy(aiDraft):null,metrics,nextAction,returning:analysis.totals.overdueTasks>0||(lastActivity&&instant-Date.parse(lastActivity)>7*86400000)};
   }
   async function dispatch(action,payload={}){
    switch(action){
-   case 'intent-preview':{
-    const assistant=root?.LifeOSRestartAssistant||globalThis.LifeOSRestartAssistant;if(!assistant)throw Error('AI 建议校验尚未就绪。');
-    const value=assistant.validate('understand',payload.value);intentDraft={id:uid(),value,accepted:[]};break;
+   case 'set-ai-context-consent':{
+    if(typeof payload.enabled!=='boolean')throw Error('AI 授权设置无效。');commit((state,r)=>{r.aiContextConsent=payload.enabled;});break;
    }
-   case 'intent-cancel':intentDraft=null;break;
+   case 'intent-preview':{
+    const next=localIntent({id:uid(),value:payload.value,context:payload.context,references:payload.references,accepted:[]});
+    if(next.value.intent==='focus')for(let i=0;i<next.value.tasks.length;i++)referencedTask(next,i,current());
+    persistIntent(next);break;
+   }
+   case 'intent-cancel':persistIntent(null);break;
    case 'intent-dismiss':{
     const index=Number(payload.index);if(!intentDraft||!Number.isInteger(index)||!intentDraft.value.tasks[index])break;
     if(intentDraft.accepted.includes(index))throw Error('这项行动已保存，不能从建议中移除。');
-    intentDraft.value.tasks.splice(index,1);intentDraft.accepted=intentDraft.accepted.filter(i=>i!==index).map(i=>i>index?i-1:i);break;
+    const next=copy(intentDraft),edits={};next.value.tasks.splice(index,1);next.accepted=next.accepted.filter(i=>i!==index).map(i=>i>index?i-1:i);for(const [key,fields]of Object.entries(next.edits||{})){const i=Number(key);if(i!==index)edits[i>index?i-1:i]=fields;}next.edits=edits;persistIntent(next);break;
+   }
+   case 'save-intent-edits':{
+    const index=Number(payload.index);if(!intentDraft||!Number.isInteger(index)||!intentDraft.value.tasks[index]||intentDraft.accepted.includes(index))throw Error('这项建议已保存或失效。');
+    const fields=intentEdits(payload.values);if(intentDraft.value.intent==='focus')break;
+    const next=copy(intentDraft);next.edits={...(next.edits||{}),[index]:{...(next.edits?.[index]||{}),...fields}};persistIntent(next);break;
    }
    case 'intent-accept':{
     const index=Number(payload.index),item=intentDraft?.value.tasks[index];if(!item||!Number.isInteger(index)||intentDraft.accepted.includes(index))throw Error('这项建议已保存或失效。');
-    const values=taskValues({...item,...payload,title:payload.title??item.title,estimateMinutes:payload.estimateMinutes??item.estimateMinutes,goalId:'',progress:0,resourceIds:payload.resourceIds||[]},null);
-    commit((state,r)=>{const task=freshTask({...values,creationSource:'suggestion-confirmed',deadlineText:item.deadlineText||''});state.tasks.push(task);event(r,'task_ai_confirm','确认学习行动',task.title,task.id);});
-    intentDraft.value.tasks[index]={...item,...values};intentDraft.accepted.push(index);invalidate();break;
+    const next=copy(intentDraft);let taskId;
+    const values=next.value.intent==='focus'?null:taskValues({...item,...(next.edits?.[index]||{}),...payload,goalId:'',progress:0,resourceIds:payload.resourceIds||[]},null);
+    commit((state,r)=>{
+     const task=next.value.intent==='focus'?referencedTask(next,index,state):freshTask({...values,creationSource:'suggestion-confirmed',deadlineText:item.deadlineText||''});
+     taskId=task.id;if(values){state.tasks.push(task);event(r,'task_ai_confirm','确认学习行动',task.title,task.id);next.value.tasks[index]={...item,title:values.title,course:values.course,deadline:values.deadline,estimateMinutes:values.estimateMinutes||'',priority:values.priority,notes:values.notes};}
+     if(payload.start===true){r.study={taskId:task.id,status:'active',updatedAt:timestamp()};event(r,'study_start','开始学习',task.title,task.id);}
+     next.accepted.push(index);if(next.edits)delete next.edits[index];writeIntent(r,next);
+    });intentDraft=next;intentDraftError='';invalidate();return {...getModel(),acceptedTaskId:taskId};
    }
    case 'intent-adjust-preview':{
     if(intentDraft?.value.intent!=='adjust')throw Error('请先描述计划变化。');
-    const planner=root?.LifeOSStudyPlanner||globalThis.LifeOSStudyPlanner;if(!planner)throw Error('计划调整尚未就绪。');const state=current();guard(state);const change={...intentDraft.value.adjustment,...payload};
-    const proposal=planner.adjust(state,change,engine,now());intentDraft.proposal=proposal;intentDraft.previewAt=timestamp();intentDraft.basis=intentFingerprint(state);intentDraft.value.adjustment=copy(proposal.change);break;
+    const planner=root?.LifeOSStudyPlanner||globalThis.LifeOSStudyPlanner;if(!planner)throw Error('计划调整尚未就绪。');const state=current();guard(state);const change={...intentDraft.value.adjustment,...(intentDraft.adjustmentTaskId?{taskId:intentDraft.adjustmentTaskId}:{}),...payload};
+    const proposal=planner.adjust(state,change,engine,now()),next=copy(intentDraft);next.proposal=proposal;next.previewAt=timestamp();next.basis=intentFingerprint(state);next.value.adjustment=Object.fromEntries(Object.keys(intentDraft.value.adjustment).map(key=>[key,key==='deadline'&&proposal.change[key]?dateValue(proposal.change[key]):proposal.change[key]]));next.adjustmentTaskId=proposal.change.taskId||'';persistIntent(next);break;
    }
    case 'intent-adjust-confirm':{
     const proposal=intentDraft?.proposal;if(!proposal)throw Error('请先查看调整建议。');if(proposal.change.kind==='postpone'&&Date.parse(proposal.change.deadline)<=now().getTime())throw Error('新的截止时间已经过去，请重新计算建议。');if(proposal.change.kind==='time'&&fmtDate(intentDraft.previewAt)!==fmtDate(now()))throw Error('日期已变化，请重新计算建议。');if(proposal.needsTask||proposal.needsDeadline)throw Error('请先确认要调整的任务及新的截止时间。');
@@ -98,7 +147,7 @@
      if(proposal.timed){const check=engine.validateSessions(proposal.tasks,proposal.slots,proposal.plan.sessions,{...options(r),now:now()});if(!check.valid)throw Error('时间已变化，请重新计算建议。');r.slots=copy(proposal.slots);r.schedule=copy(check.sessions);}
      state.tasks=copy(proposal.tasks);r.taskOrder=copy(proposal.order);
      if(proposal.change.kind==='pause'&&r.study?.taskId===proposal.change.taskId)r.study={...r.study,status:'paused',updatedAt:timestamp()};
-     r.undo={type:'intent',previous,applied:intentFingerprint(state)};event(r,'plan_confirm','确认学习调整',proposal.note,proposal.change.taskId||'');
+     r.undo={type:'intent',previous,applied:intentFingerprint(state)};event(r,'plan_confirm','确认学习调整',proposal.note,proposal.change.taskId||'');writeIntent(r,null);
     });intentDraft=null;invalidate();break;
    }
    case 'save-ui-draft':{
@@ -161,11 +210,11 @@
    case 'demo-reset':startDemo();break;
    case 'demo-start':startDemo();if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-active'},root.location.origin);break;
    case 'demo-disrupt':disruptDemo();break;
-   case 'demo-end':if(demoOnly){root?.parent?.postMessage({type:'lifeos-demo-exit'},root.location.origin);}else{active=store;mode='real';phase='';invalidate();splitPreview=null;aiDraft=null;intentDraft=null;if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-finished'},root.location.origin);}break;
+   case 'demo-end':if(demoOnly){root?.parent?.postMessage({type:'lifeos-demo-exit'},root.location.origin);}else{active=store;mode='real';phase='';invalidate();splitPreview=null;aiDraft=null;restoreIntent();if(root?.parent&&root?.location?.origin)root.parent.postMessage({type:'lifeos-demo-finished'},root.location.origin);}break;
    default:throw Error('操作暂不可用。');
    }
   }
-  if(demoOnly)startDemo();
+  if(demoOnly)startDemo();else restoreIntent();
   return {getModel,dispatch,memoryDraft(taskId){if(mode!=='real'||demoOnly)throw Error('示例记录不能写入真实记忆。');const task=current().tasks.find(t=>t.id===taskId&&t.completed&&t.completedAt);if(!task)throw Error('请选择真实完成的学习任务。');const date=new Date(task.completedAt);if(!Number.isFinite(+date))throw Error('完成日期无效，无法生成记忆草案。');return {category:'milestone',content:`${fmtDate(date)} 完成了「${String(task.title).slice(0,240)}」。`,source:('lifeos:task:'+task.id).slice(0,500)};},setResources(items){resourceList=Array.isArray(items)?items:[];}};
  }
  const api={createController};if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.LifeOSRestartModel=api;

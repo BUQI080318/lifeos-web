@@ -11,7 +11,7 @@ function fixture(){let data={version:1,profile:{},tasks:[],goals:[],records:[],t
 async function task(c,title='现代汉语复习',minutes=180){await c.dispatch('save-task',{title,estimateMinutes:minutes,priority:'high',progress:20});return c.getModel().tasks.at(-1).id;}
 async function prepare(c,change=adjustment){await c.dispatch('intent-preview',{value:{...suggestion,intent:'adjust',tasks:[],adjustment:change}});await c.dispatch('intent-adjust-preview');}
 
-test('an incomplete suggestion is memory-only until one explicit accept, and unknown effort never becomes a zero-minute schedule',async()=>{
+test('an incomplete suggestion stays a local draft until one explicit accept, and unknown effort never becomes a zero-minute schedule',async()=>{
  const {c,store}=fixture();await c.dispatch('intent-preview',{value:suggestion});assert.equal(store.snapshot().tasks.length,0);
  c.setResources([{id:'material-1'}]);await c.dispatch('intent-accept',{index:0,title:'自己确认的行动',resourceIds:['material-1']});
  const saved=c.getModel().tasks[0];assert.equal(saved.estimateMinutes,0);assert.equal(saved.deadline,'');assert.equal(saved.deadlineText,'下周三');assert.deepEqual(saved.resourceIds,['material-1']);
@@ -29,7 +29,7 @@ test('start, notes, pause and reload preserve the actual task rather than openin
 });
 test('time reduction is preview-only, preserves completed work, and undo restores original tasks and actual availability',async()=>{
  const {c,store}=fixture(),id=await task(c);await c.dispatch('add-slot',{start:day+'T18:00',end:day+'T21:00'});const done=await task(c,'已经完成的英语阅读',20);await c.dispatch('complete-study',{id:done});
- const original=store.snapshot();await prepare(c);assert.deepEqual(store.snapshot(),original);assert.equal(c.getModel().intentDraft.proposal.removedMinutes,120);
+ const original=store.snapshot();await prepare(c);const preview=store.snapshot();delete preview.restart.uiDrafts;assert.deepEqual(preview,original);assert.equal(c.getModel().intentDraft.proposal.removedMinutes,120);
  await c.dispatch('intent-adjust-confirm');assert.equal(new Date(c.getModel().slots[0].end).getHours(),19);assert.deepEqual(c.getModel().tasks.find(t=>t.id===done),original.tasks.find(t=>t.id===done));assert.equal(c.getModel().tasks.find(t=>t.id===id).progress,20);
  await c.dispatch('undo-plan');assert.deepEqual(c.getModel().slots,original.restart.slots);assert.deepEqual(c.getModel().tasks,original.tasks);assert.deepEqual(c.getModel().schedule,original.restart.schedule);
 });
