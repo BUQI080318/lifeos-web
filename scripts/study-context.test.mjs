@@ -82,3 +82,11 @@ test('focus is forbidden without supplied tasks and preserves a legacy due-only 
  const h=fixture(),res=await h.run({text:'继续现代汉语',context});assert.equal(res.status,200);const out=(await res.json()).value;
  assert.equal(out.tasks[0].deadline,'2026-11-11');assert.equal(assistant.validate('understand',out,{context}).tasks[0].deadline,'2026-11-11');
 });
+test('relative exam dates remain explicitly pending even when the model omits deadlineText',async()=>{
+ const output={...focus,intent:'create',tasks:[{title:'整理待复习章节',deadline:'',deadlineText:'',estimateMinutes:null}],questions:[]};
+ const h=fixture(output),res=await h.run({text:'下周三考现代汉语，需要复习三章'});assert.equal(res.status,200);const value=(await res.json()).value;
+ assert.equal(value.tasks[0].deadline,'');assert.ok(value.questions.some(q=>/具体.*日期.*时间/.test(q)));assert.ok(value.tasks.length,'pending date must not block flexible actions');
+ const exact=fixture(output),confirmed=await exact.run({text:'下周三2026年11月11日08:00考现代汉语，需要复习三章'});assert.equal(confirmed.status,200);assert.ok(!(await confirmed.json()).value.questions.some(q=>/具体.*日期.*时间/.test(q)));
+ const unknownClock=fixture(output),dateOnly=await unknownClock.run({text:'下周三2026年11月11日考现代汉语，需要复习三章'});assert.ok((await dateOnly.json()).value.questions.some(q=>/具体.*日期.*时间/.test(q)));
+ const prompt=h.paid()[0].body.messages[0].content;assert.match(prompt,/chapter count is not a chapter identity/);assert.match(prompt,/范围待确认/);
+});
