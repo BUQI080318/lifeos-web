@@ -1,6 +1,6 @@
 import {categories,memoryInput,SessionFence,loadAllMemories,saveMemory,deleteMemory,cleanCallbackUrl,saveExhibition} from './core.js';
 import {accountStorage} from './account-storage.js';
-import {createLoadGate} from './workbench-loading.js';
+import {createLoadGate} from './workbench-loading.js?v=study-fast-20261103';
 import {createAssistantRequest} from './assistant-client.js?v=study-20261103';
 import {createSpatialExperience} from './cinematic.js?v=study-20261103';
 
@@ -79,10 +79,10 @@ function prepareWorkbench(){
   if(workbenchFrame)return;
   if((!sessionUser||!ready||recovering)&&!demoRequested)return;
   workbenchDemo=demoRequested;
-  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=study-20261103'+(workbenchDemo?'&demo=1':'');
+  workbenchFrame=document.createElement('iframe');workbenchFrame.loading='eager';workbenchFrame.title=workbenchDemo?'学习工作台示例':'学习工作台';workbenchFrame.src='/lifeos-web/workbench/frame/index.html?v=study-fast-20261103'+(workbenchDemo?'&demo=1':'');
   const frame=workbenchFrame,loading=document.createElement('div'),label=document.createElement('p'),retry=document.createElement('button');loading.className='workbench-loading';label.setAttribute('role','status');retry.type='button';retry.textContent='重新加载工作台';retry.onclick=()=>workbenchLoadGate?.retry();loading.append(label,retry);
   frame.referrerPolicy='no-referrer';$('workbenchHost').replaceChildren(frame,loading);workbenchLoadGate?.destroy();
-  workbenchLoadGate=createLoadGate({onChange:state=>{loading.hidden=state.status==='ready';retry.hidden=!state.canRetry;label.textContent=state.canRetry?'工作台加载较慢。可以重试；未保存的输入请先保留。':'正在打开学习工作台…';},onRetry:()=>{if(frame!==workbenchFrame)return;frame.src=frame.src.split('&retry=')[0]+'&retry='+Date.now();}});
+  workbenchLoadGate=createLoadGate({onChange:state=>{loading.hidden=state.status==='ready';retry.hidden=!state.canRetry;label.textContent=state.message||(state.canRetry?'工作台加载较慢。可以重试；未保存的输入请先保留。':'正在打开学习工作台…');},onRetry:()=>{if(frame!==workbenchFrame)return;frame.src=frame.src.split('&retry=')[0]+'&retry='+Date.now();}});
 }
 function showWorkbench(){
   if(!sessionUser || !ready || recovering)throw Error('请先完成账户验证并读取数据。');
@@ -94,6 +94,8 @@ function showWorkbench(){
 }
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==workbenchFrame?.contentWindow)return;
+  if(event.data?.type==='lifeos-workbench-stage'&&typeof event.data.message==='string'&&event.data.message.length<=180)workbenchLoadGate?.progress(event.data.message);
+  if(event.data?.type==='lifeos-workbench-error'&&typeof event.data.message==='string'&&event.data.message.length<=180)workbenchLoadGate?.fail(event.data.message);
   if(event.data?.type==='lifeos-workbench-ready'){workbenchLoadGate?.ready();workbenchFrame.contentWindow.postMessage({type:'lifeos-motion',paused:userPaused || document.body.dataset.view!=='workbench'},location.origin);if(demoRequested&&!workbenchDemo)workbenchFrame.contentWindow.postMessage({type:'lifeos-demo-start'},location.origin);}
   if(event.data?.type==='lifeos-memory-draft'){
     const draft=event.data.draft;
