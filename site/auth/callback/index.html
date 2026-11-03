@@ -4,20 +4,23 @@
   <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob: https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>LifeOS — 个人成长操作系统</title>
-  <link rel="stylesheet" href="/lifeos-web/cloud.css?v=lifeos2-20261102">
-  <link rel="stylesheet" href="/lifeos-web/cinematic.css?v=lifeos2-20261102">
-  <link rel="stylesheet" href="/lifeos-web/render-upgrade.css?v=lifeos2-20261102">
+  <link rel="stylesheet" href="/lifeos-web/cloud.css?v=ai-phase1-20261102">
+  <link rel="stylesheet" href="/lifeos-web/cinematic.css?v=ai-phase1-20261102">
+  <link rel="stylesheet" href="/lifeos-web/render-upgrade.css?v=ai-phase1-20261102">
+  <link rel="modulepreload" href="/lifeos-web/architecture-glb.js?v=ai-phase1-20261102">
+  <link rel="preload" as="fetch" href="/lifeos-web/assets/architecture/building.glb.gz" crossorigin>
+  <link rel="preload" as="fetch" href="/lifeos-web/assets/architecture/v16-concrete-diffuse.rgbe.gz" crossorigin>
   <script defer src="/lifeos-web/vendor/supabase.js"></script>
   <script defer src="/lifeos-web/config.js"></script>
   <script defer src="/lifeos-web/fluid-renderer.js"></script>
-  <script type="module" src="/lifeos-web/app.js?v=lifeos2-20261102"></script>
-<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css?v=lifeos2-20261102"><link rel="stylesheet" href="/lifeos-web/product.css?v=lifeos2-20261102"></head>
+  <script type="module" src="/lifeos-web/app.js?v=ai-phase1-20261102"></script>
+<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css?v=ai-phase1-20261102"></head>
 <body data-spatial="true">
   <canvas id="fluid" aria-hidden="true"></canvas>
   <header>
-    <a class="brand" href="/lifeos-web/#space/workbench" aria-label="LifeOS 今天">LifeOS</a>
-    <nav class="space-nav" aria-label="主导航"><button type="button" data-product-nav="today">今天</button><button type="button" data-product-nav="resources">资料</button><button type="button" data-product-nav="mine">我的</button></nav>
-    <details class="view-settings" id="viewSettings">
+    <a class="brand" href="/lifeos-web/#space/entrance" aria-label="LifeOS 入口">LifeOS</a>
+    <nav class="space-nav" aria-label="空间导航"><button type="button" data-space-nav="entrance">入口</button><button type="button" data-space-nav="gallery">记忆长廊</button><button type="button" data-space-nav="workbench">学习工作台</button><button type="button" data-space-nav="account">我的记忆</button></nav>
+    <details class="view-settings">
       <summary><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 6h14M3 14h14M7 3v6M13 11v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>设置</span></summary>
       <div class="view-settings-panel">
         <label class="mode-control" for="spaceMode">体验节奏<select id="spaceMode" aria-label="体验节奏"><option value="standard">标准</option><option value="immersive">沉浸</option><option value="reduced">减少动态</option></select></label>
@@ -51,7 +54,6 @@
         <p id="passwordHint" class="muted">使用你在 LifeOS 注册的账户登录。</p>
         <button class="primary" id="authSubmit" type="submit">登录</button>
       </form>
-      <button id="authDemo" type="button" class="text-button">先体验示例（不使用真实 AI）</button>
       <button id="resend" type="button" class="text-button">重新发送注册验证邮件</button>
       <p class="muted">如果你此前收到的是邀请邮件、尚未设置密码，可以先使用“忘记密码”设置密码。</p>
     </section>
@@ -61,11 +63,11 @@
       <button type="button" data-action="logout">退出此账户</button>
     </section>
     <section id="workspace" hidden>
-      <div class="mine-links"><button type="button" data-product-route="history">学习历史</button><button type="button" data-product-route="settings">隐私与数据</button><details><summary>更多个人工具</summary><button type="button" id="ambientToggle">暂停液态背景</button><button type="button" data-product-route="home">成长回顾与目标</button><button type="button" data-space-nav="gallery">私人记忆长廊</button><button type="button" data-space-nav="entrance">建筑空间</button></details></div><div class="workspace-head"><div><h2>我的</h2><p id="identity" class="muted"></p></div><div class="actions"><button id="newMemory" type="button">写一段记忆</button><button id="refresh" type="button">刷新云端数据</button><button id="export" type="button">导出资料与记忆</button><button type="button" data-action="logout">退出登录</button></div></div>
-      <section class="panel" id="memoryArchive"><div class="workspace-head"><h3>已保存的记忆</h3><label class="search">搜索<input id="search" type="search" placeholder="内容或来源"></label></div><p class="muted">你的长期记忆与成长片段，按年份和主题整理。</p><div class="archive-filters"><label>年份<select id="archiveYear"><option value="">所有年份</option></select></label><label>主题<select id="archiveCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label></div><p id="count" class="muted"></p><div id="memories"></div></section>
+      <div class="workspace-head"><div><h2>我的记忆</h2><p id="identity" class="muted"></p></div><div class="actions"><button id="newMemory" type="button">写一段记忆</button><button id="refresh" type="button">刷新云端数据</button><button id="export" type="button">导出资料与记忆</button><button type="button" data-action="logout">退出登录</button></div></div>
+      <section class="panel" id="memoryArchive"><div class="workspace-head"><h3>已保存的记忆</h3><label class="search">搜索<input id="search" type="search" placeholder="内容或来源"></label></div><p class="muted">选择「加入长廊」后才会展出，最多 8 条。全部记忆均保留在此，按创建年份归档。</p><div class="archive-filters"><label>年份<select id="archiveYear"><option value="">所有年份</option></select></label><label>主题<select id="archiveCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label></div><p id="count" class="muted"></p><div id="memories"></div></section>
       <div class="columns">
         <details id="profileDetails" class="panel"><summary>个人资料</summary><form id="profileForm"><label>称呼<input name="display_name" maxlength="100"></label><label>个人介绍<textarea name="bio" maxlength="2000" rows="4"></textarea></label><button type="submit">保存资料</button></form><p class="muted">这里保存的资料与你的账户关联。旧站个人档案尚未迁移。</p></details>
-        <details id="memoryComposer" class="panel"><summary id="memoryTitle">写一段记忆</summary><form id="memoryForm"><label>类别<select name="category"><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info" selected>重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><label>内容<textarea name="content" required maxlength="10000" rows="4" placeholder="只保存你主动选择留下的信息"></textarea></label><label>来源说明<input name="source" value="manual" maxlength="500" required></label><label class="check"><input name="enabled" type="checkbox" checked>启用这条记忆</label><label class="check"><input name="ai_allowed" type="checkbox">允许未来 AI 使用这条记忆（学习助手目前不会读取）</label><div class="actions"><button class="primary" type="submit">保存到云端</button><button id="cancelEdit" type="button" hidden>取消编辑</button></div></form></details>
+        <details id="memoryComposer" class="panel"><summary id="memoryTitle">写一段记忆</summary><form id="memoryForm"><label>类别<select name="category"><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info" selected>重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><label>内容<textarea name="content" required maxlength="10000" rows="4" placeholder="只保存你主动选择留下的信息"></textarea></label><label>来源说明<input name="source" value="manual" maxlength="500" required></label><label class="check"><input name="enabled" type="checkbox" checked>启用这条记忆</label><label class="check"><input name="ai_allowed" type="checkbox">允许未来 AI 使用这条记忆（当前尚未接入 AI）</label><div class="actions"><button class="primary" type="submit">保存到云端</button><button id="cancelEdit" type="button" hidden>取消编辑</button></div></form></details>
       </div>
     </section>
   </main>

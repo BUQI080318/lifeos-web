@@ -12,7 +12,7 @@ const messages={
 function failure(code='MODEL_UNAVAILABLE',retryAfter){const error=new Error(messages[code]||messages.MODEL_UNAVAILABLE);error.code=Object.hasOwn(messages,code)?code:'MODEL_UNAVAILABLE';if(Number.isFinite(Number(retryAfter)))error.retryAfter=Math.max(0,Number(retryAfter));return error;}
 export function createAssistantRequest({client,url,publishableKey,userId,assertActive,fetcher=fetch}){
  return async(action,payload)=>{
-  assertActive();if(!['parse','split','explain','understand'].includes(action))throw failure('INVALID_INPUT');
+  assertActive();if(!['parse','split','explain'].includes(action))throw failure('INVALID_INPUT');
   const {data,error}=await client.auth.getSession();assertActive();
   if(error||data?.session?.user?.id!==userId||!data?.session?.access_token)throw failure('INVALID_SESSION');
   let response;
