@@ -25,6 +25,7 @@ recovering = location.pathname.replace(/\/$/,'') === '/lifeos-web/auth/reset' ||
 function tell(message,error=false) { $('notice').hidden = false; $('notice').textContent = message; $('notice').dataset.error = String(error);if(error&&document.body.dataset.spatial==='true')$('renderStatus').textContent=message; }
 function errorText(error, operation='request') {
   const code = error?.code, message = error?.message || String(error);
+  if (/^(?:invalid|missing) api key\.?$/i.test(message.trim())) return '站点登录配置暂未通过云端验证。请刷新页面后重试。';
   if (code === 'invalid_credentials') return '邮箱或密码不正确。受邀但未设置密码的账户请先使用“忘记密码”。';
   if (code === 'email_not_confirmed') return '请先在邮箱中完成注册验证，也可重新发送验证邮件。';
   if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit') return '请求较频繁，请稍后再试。';

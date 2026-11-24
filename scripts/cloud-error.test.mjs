@@ -30,3 +30,17 @@ test('explicit credential and verification failures retain their guidance', () =
   assert.match(errorText({code:'invalid_credentials'}, 'auth'), /邮箱或密码不正确/);
   assert.match(errorText({code:'email_not_confirmed'}, 'auth'), /注册验证/);
 });
+
+test('a rejected site API key is distinguishable from a wrong account password', () => {
+  const message = errorText({name:'AuthApiError', status:401, message:'Invalid API key'}, 'auth');
+  assert.match(message, /站点登录配置/);
+  assert.match(message, /刷新/);
+  assert.doesNotMatch(message, /密码|草稿/);
+});
+
+test('all authentication entrypoints load a versioned copy of the site configuration', () => {
+  for (const file of ['index.html', 'auth/reset/index.html', 'auth/callback/index.html']) {
+    const html = readFileSync(new URL('../site/' + file, import.meta.url), 'utf8');
+    assert.match(html, /src="\/lifeos-web\/config\.js\?v=[a-z0-9-]+"/i, file);
+  }
+});
