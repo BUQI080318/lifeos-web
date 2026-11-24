@@ -35,7 +35,6 @@
    1. 主导航：真玻璃胶囊
    ------------------------------------------------------------ */
 #nav {
-  position: relative;
   border-radius: var(--lw-r-pill) !important;
   background: var(--lw-glass) !important;
   border: 1px solid var(--lw-glass-edge) !important;
@@ -269,4 +268,36 @@ table,
   .card, .card.flat { padding: 18px !important; border-radius: 20px !important; }
   .lo-home-lower { padding: 20px 18px !important; border-radius: 20px !important; }
   .lo-home-lower > aside { padding-left: 0 !important; }
+}
+
+/* ============================================================
+   10. 参赛精简：只留与「学习计划调整」直接相关的入口
+   ------------------------------------------------------------
+   隐藏入口，不删数据：
+     goals      总览（志愿服务 60/601 小时）
+     archive    成长档案（GPA、学分、等级课、加分台账、达标测算、四年路线）
+     programs   专项计划
+     reflection 成长回顾
+   全是保研资格跟踪，与「计划被打乱后怎么办」无关。
+   只留 home（今天行动）与 planner（行动规划）。
+   ============================================================ */
+
+#nav button[data-life-route=goals],
+#nav button[data-life-route=archive],
+#nav button[data-life-route=programs],
+#nav button[data-life-route=reflection] {
+  display: none !important;
+}
+
+/* 顶栏的知识库是保研政策档案 */
+header button[data-life-route=knowledge],
+header .lo-knowledge-button {
+  display: none !important;
+}
+
+/* 导航固定在视口底部，给页面尾部留出空间，避免内容贴在胶囊上 */
+@media (min-width: 901px) {
+  .lo-home-lower, main#main > .lo-section:last-child {
+    margin-bottom: 96px !important;
+  }
 }
