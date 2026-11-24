@@ -25,5 +25,9 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+      # upload 完成后 artifact 索引有短暂延迟，deploy-pages 立刻查询会拿到
+      # "Found 0 artifact(s)"。等待索引就绪再部署。
+      - name: Wait for artifact index
+        run: sleep 15
       - id: deployment
         uses: actions/deploy-pages@v5
