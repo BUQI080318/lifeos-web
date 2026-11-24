@@ -23,13 +23,21 @@ const incomingError = hashParams.get('error_description') || new URLSearchParams
 recovering = location.pathname.replace(/\/$/,'') === '/lifeos-web/auth/reset' || incomingType === 'recovery' || incomingType === 'invite';
 
 function tell(message,error=false) { $('notice').hidden = false; $('notice').textContent = message; $('notice').dataset.error = String(error);if(error&&document.body.dataset.spatial==='true')$('renderStatus').textContent=message; }
-function errorText(error) {
+function errorText(error, operation='request') {
   const code = error?.code, message = error?.message || String(error);
   if (code === 'invalid_credentials') return '邮箱或密码不正确。受邀但未设置密码的账户请先使用“忘记密码”。';
   if (code === 'email_not_confirmed') return '请先在邮箱中完成注册验证，也可重新发送验证邮件。';
   if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit') return '请求较频繁，请稍后再试。';
   if (code === '23505') return '这次创建可能已成功。请刷新云端数据核对，避免重复添加。';
-  if (/Failed to fetch|NetworkError|fetch failed/i.test(message)) return '网络连接失败，尚未确认云端保存结果。草稿仍在当前页面，请联网后刷新核对。';
+  const unavailable = ['AuthRetryableFetchError','TimeoutError','AbortError'].includes(error?.name)
+    || /Failed to fetch|NetworkError|fetch failed|Load failed|timed out/i.test(message);
+  if (unavailable) {
+    if (operation === 'auth') return '暂时无法连接登录服务。请稍后在当前页面重试。';
+    if (operation === 'mail') return '暂时无法确认邮件请求。请先检查收件箱，稍后再试。';
+    if (operation === 'read') return '暂时无法读取云端数据。连接恢复后请重试。';
+    if (operation === 'draft') return '暂时无法确认云端保存结果。请保留当前草稿，连接恢复后先核对云端数据。';
+    return '暂时无法连接 LifeOS 云端服务。请稍后重试。';
+  }
   return message;
 }
 function showMode(next) {
@@ -209,18 +217,18 @@ async function applySession(session,event='') {
       await loadWorkspace(ticket,false);
       if(!demoRequested)spatial.navigate(requestedSpace,true,{direct:['workbench','account'].includes(requestedSpace)});
     }catch(error){
-      if(fence.valid(ticket)){tell(errorText(error),true);if(!sessionUser&&!demoRequested){$('auth').hidden=false;$('workspace').hidden=true;}}
+      if(fence.valid(ticket)){tell(errorText(error,sessionUser?'read':'auth'),true);if(!sessionUser&&!demoRequested){$('auth').hidden=false;$('workspace').hidden=true;}}
       throw error;
     }finally{if(hydration===pending)hydration=null;}
   })();
   hydration=pending;
   return pending.promise;
 }
-async function run(control,operation) {
+async function run(control,operation,errorContext) {
   if(control.disabled)return;
   const generation=fence.generation;
   control.disabled=true; control.setAttribute('aria-busy','true');
-  try{await operation();}catch(error){if(generation===fence.generation)tell(errorText(error),true);}
+  try{await operation();}catch(error){if(generation===fence.generation)tell(errorText(error,errorContext),true);}
   finally{control.disabled=false;control.removeAttribute('aria-busy');}
 }
 function mailCheck(){if(Date.now()<mailUntil)throw Error('邮件刚刚申请过，请稍候再试，并检查垃圾邮件。');mailUntil=Date.now()+60000;}
@@ -244,13 +252,13 @@ $('authForm').onsubmit=event=>{
         form.elements.password.value='';locked=false;recovering=false;await applySession(data.session);
       }
     }finally{authBusy=false;}
-  });
+  },mode==='login'?'auth':'mail');
 };
 $('resend').onclick=()=>run($('resend'),async()=>{
   const input=$('authForm').elements.email;if(!input.reportValidity())return;mailCheck();
   const {error}=await client.auth.resend({type:'signup',email:input.value.trim(),options:{emailRedirectTo:location.origin+'/lifeos-web/auth/callback/'}});
   if(error)throw error;tell('验证邮件请求已提交，请检查邮箱。邀请账户请使用忘记密码。');
-});
+},'mail');
 $('resetForm').onsubmit=event=>{event.preventDefault();run(event.submitter,async()=>{
   const ticket=fence.ticket(),form=$('resetForm'),password=form.elements.password.value;
   if(password.length<12 || password!==form.elements.confirm.value)throw Error('两次密码需要一致，且至少 12 位。');
@@ -275,7 +283,7 @@ $('profileForm').onsubmit=event=>{event.preventDefault();run(event.submitter,asy
   const {data,error}=await request.select('*');fence.assert(ticket);if(error)throw error;
   if(data?.length!==1)throw Error('资料已在其他设备发生变化，请保留草稿并刷新核对。');
   profile=data[0];tell('个人资料已保存到云端。');
-});};
+},'draft');};
 $('memoryForm').onsubmit=event=>{event.preventDefault();run(event.submitter,async()=>{
   if(!ready)throw Error('请先成功读取云端数据再保存。');
   const ticket=fence.ticket(),form=$('memoryForm'),editorAtSubmit=editorGeneration;
@@ -288,13 +296,13 @@ $('memoryForm').onsubmit=event=>{event.preventDefault();run(event.submitter,asyn
     else {editing={...row};$('memoryTitle').textContent='编辑记忆';$('cancelEdit').hidden=false;}
   }
   renderMemories();tell('提交的内容已保存到云端。保存期间新输入的草稿会保留，请再次保存。');
-});};
+},'draft');};
 $('cancelEdit').onclick=resetEditor;$('newMemory').onclick=openMemoryComposer;$('search').oninput=renderMemories;
 $('archiveYear').onchange=renderMemories;$('archiveCategory').onchange=renderMemories;
 $('refresh').onclick=()=>run($('refresh'),async()=>{
   if(!confirm('刷新将重新载入个人资料。未保存的记忆草稿仍保留；请先复制尚未保存的个人资料。'))return;
   await loadWorkspace(fence.ticket());
-});
+},'read');
 $('export').onclick=()=>run($('export'),async()=>{
   if(!confirm('导出包含本账户云端个人资料、设置和长期记忆（含 AI 授权状态）。不包含旧站课程、任务或知识库文件。继续？'))return;
   const ticket=fence.ticket();
@@ -302,7 +310,7 @@ $('export').onclick=()=>run($('export'),async()=>{
   fence.assert(ticket);if(p.error||s.error)throw p.error||s.error;
   const blob=new Blob([JSON.stringify({format:'lifeos-cloud-account-export',version:1,exportedAt:new Date().toISOString(),userId:ticket.userId,profile:p.data,settings:s.data,memories:rows},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='LifeOS-云端资料与记忆.json';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell('已生成当前账户的导出文件，请检查浏览器下载。');
-});
+},'read');
 
 let fluid,userPaused=false;
 try{fluid=new window.BaoyanFluid.FluidRenderer($('fluid'));fluid.setReading(true);}catch{ $('fluid').hidden=true; }
@@ -331,7 +339,7 @@ spatial=createSpatialExperience({
   onEdit:row=>{if(ready&&row.user_id===fence.userId)editMemory(row);},
   onReflect:row=>{if(!ready||row.user_id!==fence.userId)return;resetEditor();const form=$('memoryForm');form.elements.category.value='reflection';form.elements.source.value='reflection:'+row.id;openMemoryComposer();},
   onExhibit:toggleExhibit,
-  onRefresh:()=>run($('galleryRefresh'),async()=>{if(!ready)throw Error('请先登录。');await loadWorkspace(fence.ticket());}),
+  onRefresh:()=>run($('galleryRefresh'),async()=>{if(!ready)throw Error('请先登录。');await loadWorkspace(fence.ticket());},'read'),
   onMotion:paused=>{userPaused=paused;if(paused&&fluid&&!fluid.paused)fluid.toggle();workbenchFrame?.contentWindow?.postMessage({type:'lifeos-motion',paused},location.origin);$('motion').setAttribute('aria-pressed',String(paused));$('motion').textContent=paused?'恢复背景':'暂停背景';},
   onError:message=>{tell(message,true);$('spaceNarration').textContent=message;}
 });
@@ -351,4 +359,4 @@ async function start(){
   await applySession(data.session);
   if(!data.session)tell(incomingError?'验证链接未完成：'+incomingError:recovering?'链接已失效或未验证，请重新申请重置邮件。':'请登录，或创建你的账户。',Boolean(incomingError||recovering));
 }
-start().catch(error=>{cleanCallbackUrl(location,history);tell(errorText(error),true);if(!demoRequested)$('auth').hidden=false;});
+start().catch(error=>{cleanCallbackUrl(location,history);tell(errorText(error,sessionUser?'read':'auth'),true);if(!sessionUser&&!demoRequested)$('auth').hidden=false;});
