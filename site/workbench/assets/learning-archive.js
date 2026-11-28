@@ -1,13 +1,7 @@
 /* Generic learning archive. The old storage key remains solely for backwards-compatible personal data. */
 (function(root){'use strict';
 const clone=v=>structuredClone(v),uid=()=>root.crypto.randomUUID();
-const STUDY_RESOURCES = [
-  {id:"cet", title:"四六级备考", detail:"真题训练、翻译与写作练习", category:"语言备考", tags:["四六级","真题","翻译","写作"], url:"https://aistudy666.com/cet"},
-  {id:"general", title:"通识课章节练习", detail:"按课程章节刷题与复习", category:"课程复习", tags:["通识课","章节练习","刷题"], url:"https://aistudy666.com/general-review"},
-  {id:"library", title:"大学学习资料库", detail:"课程资料、考试资源与实用合集", category:"课程复习", tags:["课程资料","考试资源","资料库"], url:"https://aistudy666.com/library"},
-  {id:"tools", title:"AI 学习工具", detail:"图片处理、语音与文档转换工具", category:"学习辅助", tags:["AI工具","文档","语音","图片"], url:"https://aistudy666.com/ai-tools"},
-  {id:"major", title:"专业百科", detail:"专业课程体系与就业方向参考", category:"学习拓展", tags:["专业","课程体系","就业方向"], url:"https://aistudy666.com/encyclopedia"}
-];
+const STUDY_RESOURCES = [];
 let studyViewFilter = "all";
 let studyCategoryFilter = "all", studySearchValue = "", studyEditingId = null, achievementEditingId = null;
 function normalizeStudy(raw){

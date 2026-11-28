@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" class="liquid-universe">
 <head>
-<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lurUFaULyj4YZ70e9VdoeoFmHCITanW2jd4mNOmiUgk=' 'sha256-AWAGC6XGNcLob+fIu6cAvotHCUYXSMfAkDD7/7SQ20A='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lurUFaULyj4YZ70e9VdoeoFmHCITanW2jd4mNOmiUgk=' 'sha256-AWAGC6XGNcLob+fIu6cAvotHCUYXSMfAkDD7/7SQ20A='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.deepseek.com; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>LifeOS · 学习工作台</title>
@@ -566,15 +566,13 @@ input.f:focus,select.f:focus{background:rgba(11,25,37,.92);border-color:rgba(104
 @media(max-width:520px){.study-filter-row{align-items:flex-start}.study-category-select{width:100%;justify-content:space-between}.study-category-select select{flex:1;max-width:220px}.study-actions>*{flex:1 1 auto}.study-status-select{justify-content:space-between}.study-status-select select{flex:1}.study-dialog{padding:16px}.study-form-grid{grid-template-columns:1fr}.study-form-grid .wide{grid-column:auto}.study-log-row{grid-template-columns:1fr}.study-log-row button{grid-column:auto}.study-dialog-head h2{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.study-card,.study-achievement,.study-actions .btn,.study-dialog[open]{animation:none!important;transition:none!important}.study-card:hover,.study-achievement:hover,.study-actions .btn:hover,.study-actions .btn:active{transform:none}}
 </style>
-<link rel="stylesheet" href="/lifeos-web/workbench/assets/liquid-universe.css">
-<link rel="stylesheet" href="/lifeos-web/workbench/assets/lifeos.css?v=study-20261103">
-<link rel="stylesheet" href="/lifeos-web/workbench/assets/restart-ui.css?v=study-20261103">
-<link rel="stylesheet" href="/lifeos-web/workbench/assets/knowledge-hub.css?v=daily-20261103">
-<link rel="stylesheet" href="/lifeos-web/workbench/assets/study-ui.css?v=daily-20261103">
-<link rel="stylesheet" href="/workbench/assets/liquid-workbench.css">
+<link rel="stylesheet" href="/lifeos-web/workbench/assets/liquid-universe.css?v=glass-20261125b">
+<link rel="stylesheet" href="/lifeos-web/workbench/assets/lifeos.css?v=glass-20261125b">
+<link rel="stylesheet" href="/lifeos-web/workbench/assets/restart-ui.css?v=glass-20261126l">
+<link rel="stylesheet" href="/lifeos-web/workbench/assets/knowledge-hub.css?v=apple-20261125d">
+<link rel="stylesheet" href="/lifeos-web/workbench/assets/study-ui.css?v=apple-20261125">
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><filter id="lg-refract" filterUnits="objectBoundingBox" primitiveUnits="objectBoundingBox" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB"><feImage href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0' stop-color='rgb(128,128,128)'/%3E%3Cstop offset='0.60' stop-color='rgb(128,128,128)'/%3E%3Cstop offset='0.74' stop-color='rgb(150,150,128)'/%3E%3Cstop offset='0.86' stop-color='rgb(104,104,128)'/%3E%3Cstop offset='0.95' stop-color='rgb(146,146,128)'/%3E%3Cstop offset='1' stop-color='rgb(128,128,128)'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='256' height='256' fill='url(%23g)'/%3E%3C/svg%3E" result="map" preserveAspectRatio="none"/><feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G" scale="0.055"/></filter></defs></svg>
 <canvas id="motionField" aria-hidden="true"></canvas>
 <div id="pageCurtain" aria-hidden="true"></div>
 
@@ -687,12 +685,17 @@ input.f:focus,select.f:focus{background:rgba(11,25,37,.92);border-color:rgba(104
 <script src="/lifeos-web/workbench/assets/crystal-texture.js"></script>
 <script src="/lifeos-web/workbench/assets/liquid-sculpture.js?v=crystal-ring-2"></script>
 <script src="/lifeos-web/workbench/assets/study-context.js?v=daily-20261103"></script>
-<script src="/lifeos-web/workbench/assets/restart-assistant.js?v=daily-20261103"></script>
+<script src="/lifeos-web/workbench/assets/restart-assistant.js?v=glass-20261125f"></script>
+<script src="/lifeos-web/workbench/assets/schedule-engine.js?v=engine-20261124"></script>
+<script src="/lifeos-web/workbench/assets/schedule-importer.js?v=glass-20261126h"></script>
 <script src="/lifeos-web/workbench/assets/restart-engine.js?v=study-20261103"></script>
-<script src="/lifeos-web/workbench/assets/study-planner.js?v=study-20261103"></script>
-<script src="/lifeos-web/workbench/assets/restart-model.js?v=daily-20261103"></script>
-<script src="/lifeos-web/workbench/assets/study-ui.js?v=daily-review-20261103"></script>
-<script src="/lifeos-web/workbench/assets/restart-ui.js?v=daily-20261103"></script>
+<script src="/lifeos-web/workbench/assets/study-planner.js?v=glass-20261126i"></script>
+<script src="/lifeos-web/workbench/assets/restart-model.js?v=glass-20261126h"></script>
+<script src="/lifeos-web/workbench/assets/study-ui.js?v=apple-20261125c"></script>
+<script src="/lifeos-web/liquid-glass-bg.js?v=glass-20261125b"></script>
+<script src="/lifeos-web/workbench/assets/byok-ai.js?v=glass-20261126i"></script>
+<script src="/lifeos-web/workbench/assets/prompt-bank.js?v=glass-20261126k"></script>
+<script src="/lifeos-web/workbench/assets/restart-ui.js?v=glass-20261126l"></script>
 <script src="/lifeos-web/workbench/assets/lifeos-app.js?v=daily-20261103"></script>
 <script>
 window.LifeOSFrameFlush=function(){window.LearningArchive?.flush();window.LifeOS?.flush();};

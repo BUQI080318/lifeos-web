@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>LifeOS 教务课表一键导入</title>
+  <style>
+    body{width:320px;margin:0;padding:14px;font-family:system-ui,-apple-system,"Microsoft YaHei UI",sans-serif;background:#0e1420;color:#eef2f8}
+    h1{margin:0 0 6px;font-size:15px}
+    p{margin:0 0 10px;font-size:12px;line-height:1.5;color:#a7b4c9}
+    label{display:block;font-size:11.5px;color:#93a4bf;margin-bottom:4px}
+    input{width:100%;box-sizing:border-box;padding:7px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;font-size:12px;margin-bottom:10px}
+    button{width:100%;padding:9px 12px;border:0;border-radius:10px;background:#eef2f8;color:#0e1420;font-weight:700;font-size:13px;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}
+    .msg{margin-top:9px;font-size:12px;line-height:1.45;color:#86efac;min-height:16px}
+    .msg.err{color:#fca5a5}
+  </style>
+</head>
+<body>
+  <h1>LifeOS 教务课表直连</h1>
+  <p>请先在当前标签页登录学校教务系统并进入「个人课表 / 课表查询」页面，再点击下方按钮直接读取表格。</p>
+  <label for="dest">LifeOS 工作台地址</label>
+  <input id="dest" type="url" value="http://127.0.0.1:4821/lifeos-web/">
+  <button id="grab" type="button">一键抓取本页课表并导入</button>
+  <div id="status" class="msg" role="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

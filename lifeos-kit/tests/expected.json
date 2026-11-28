@@ -1,0 +1,283 @@
+{
+  "runs": [
+    {
+      "case": "C1",
+      "output": {
+        "k": 1.0,
+        "capacityRawMin": 240,
+        "capacityCalibratedMin": 240,
+        "capacityNote": "可用 240 分钟，按 k=1.0 折算相当于 240 分钟的原始估时",
+        "scheduled": [
+          {
+            "task": "t4",
+            "name": "正常任务",
+            "effMin": 60,
+            "rawMin": 60,
+            "blocks": [
+              {
+                "day": "2026-11-24",
+                "min": 60
+              }
+            ],
+            "status": "scheduled",
+            "eta": "2026-11-30"
+          }
+        ],
+        "dropped": [],
+        "remainder": [],
+        "invalid": [
+          {
+            "task": "t1",
+            "name": "没写时长",
+            "why": "invalid"
+          },
+          {
+            "task": "t2",
+            "name": "既无截止也无优先级",
+            "why": "invalid"
+          },
+          {
+            "task": "t3",
+            "name": "还没到开始日",
+            "why": "deferred"
+          }
+        ],
+        "leftoverMin": 180
+      }
+    },
+    {
+      "case": "C2",
+      "output": {
+        "k": 1.0,
+        "capacityRawMin": 90,
+        "capacityCalibratedMin": 90,
+        "capacityNote": "可用 90 分钟，按 k=1.0 折算相当于 90 分钟的原始估时",
+        "scheduled": [
+          {
+            "task": "m1",
+            "name": "现代汉语章节复习",
+            "effMin": 90,
+            "rawMin": 180,
+            "blocks": [
+              {
+                "day": "2026-11-24",
+                "min": 90
+              }
+            ],
+            "status": "partially",
+            "eta": "2026-11-30"
+          }
+        ],
+        "dropped": [
+          {
+            "task": "r1",
+            "name": "课外阅读",
+            "dropCost": 0.0,
+            "reason": "无固定期限；已完成 0%；可拆分",
+            "nextSlot": {
+              "day": "2026-11-25",
+              "startMin": 540,
+              "fitsFull": true,
+              "window": 180
+            }
+          },
+          {
+            "task": "e1",
+            "name": "英语写作练习",
+            "dropCost": 0.0611,
+            "reason": "距截止 8 天；已完成 0%；可拆分",
+            "nextSlot": {
+              "day": "2026-11-25",
+              "startMin": 540,
+              "fitsFull": true,
+              "window": 180
+            }
+          }
+        ],
+        "remainder": [
+          {
+            "task": "m1",
+            "name": "现代汉语章节复习",
+            "placedMin": 90,
+            "remainderMin": 90,
+            "nextSlot": {
+              "day": "2026-11-25",
+              "startMin": 540,
+              "fitsFull": true,
+              "window": 180
+            },
+            "reason": "距截止 6 天；已完成 0%；可拆分"
+          }
+        ],
+        "invalid": [],
+        "leftoverMin": 0
+      }
+    },
+    {
+      "case": "C3",
+      "output": {
+        "k": 1.333,
+        "capacityRawMin": 840,
+        "capacityCalibratedMin": 630,
+        "capacityNote": "可用 840 分钟，按 k=1.333 折算相当于 630 分钟的原始估时",
+        "scheduled": [
+          {
+            "task": "a",
+            "name": "小组作业汇报稿",
+            "effMin": 60,
+            "rawMin": 45,
+            "blocks": [
+              {
+                "day": "2026-11-24",
+                "min": 60
+              }
+            ],
+            "status": "scheduled",
+            "eta": "2026-11-26"
+          },
+          {
+            "task": "b",
+            "name": "现代汉语章节复习",
+            "effMin": 240,
+            "rawMin": 180,
+            "blocks": [
+              {
+                "day": "2026-11-24",
+                "min": 30
+              },
+              {
+                "day": "2026-11-25",
+                "min": 120
+              },
+              {
+                "day": "2026-11-25",
+                "min": 60
+              },
+              {
+                "day": "2026-11-26",
+                "min": 30
+              }
+            ],
+            "status": "scheduled",
+            "eta": "2026-11-30"
+          },
+          {
+            "task": "c",
+            "name": "英语写作练习",
+            "effMin": 120,
+            "rawMin": 90,
+            "blocks": [
+              {
+                "day": "2026-11-26",
+                "min": 120
+              }
+            ],
+            "status": "scheduled",
+            "eta": "2026-12-02"
+          },
+          {
+            "task": "d",
+            "name": "课外阅读",
+            "effMin": 160,
+            "rawMin": 120,
+            "blocks": [
+              {
+                "day": "2026-11-26",
+                "min": 30
+              },
+              {
+                "day": "2026-11-27",
+                "min": 130
+              }
+            ],
+            "status": "scheduled",
+            "eta": "—"
+          }
+        ],
+        "dropped": [],
+        "remainder": [],
+        "invalid": [],
+        "leftoverMin": 260
+      }
+    },
+    {
+      "case": "C4",
+      "output": {
+        "k": 1.0,
+        "capacityRawMin": 210,
+        "capacityCalibratedMin": 210,
+        "capacityNote": "可用 210 分钟，按 k=1.0 折算相当于 210 分钟的原始估时",
+        "scheduled": [
+          {
+            "task": "big",
+            "name": "长任务可拆",
+            "effMin": 160,
+            "rawMin": 160,
+            "blocks": [
+              {
+                "day": "2026-11-24",
+                "min": 130
+              },
+              {
+                "day": "2026-11-25",
+                "min": 30
+              }
+            ],
+            "status": "scheduled",
+            "eta": "2026-11-27"
+          }
+        ],
+        "dropped": [],
+        "remainder": [],
+        "invalid": [],
+        "leftoverMin": 50
+      }
+    },
+    {
+      "case": "C5",
+      "output": {
+        "k": 1.0,
+        "capacityRawMin": 210,
+        "capacityCalibratedMin": 210,
+        "capacityNote": "可用 210 分钟，按 k=1.0 折算相当于 210 分钟的原始估时",
+        "scheduled": [
+          {
+            "task": "rigid",
+            "name": "不可拆任务",
+            "effMin": 100,
+            "rawMin": 100,
+            "blocks": [
+              {
+                "day": "2026-11-25",
+                "min": 100
+              }
+            ],
+            "status": "scheduled",
+            "eta": "2026-11-26"
+          }
+        ],
+        "dropped": [],
+        "remainder": [],
+        "invalid": [],
+        "leftoverMin": 110
+      }
+    }
+  ],
+  "calibration": {
+    "C3": {
+      "k": 1.333,
+      "n": 5,
+      "source": "personal"
+    },
+    "C6_clamp": {
+      "k": 3.0,
+      "n": 3,
+      "source": "clamped"
+    },
+    "C6_few": {
+      "k": 1.0,
+      "n": 2,
+      "source": "default"
+    }
+  }
+}

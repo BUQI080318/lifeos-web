@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "LifeOS 教务课表一键导入",
+  "version": "1.0.0",
+  "description": "在已登录的高校教务系统“个人课表”页点击一下，零误差提取真实 HTML 课表表格并一键传回 LifeOS（不接触学号密码）。",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "一键导入当前教务课表到 LifeOS",
+    "default_popup": "popup.html"
+  }
+}

@@ -2,13 +2,20 @@ const message=document.getElementById('state');
 const report=(type,message)=>parent.postMessage({type,message:String(message).slice(0,180)},location.origin);
 try {
   if(parent===window)throw Error('请先从 LifeOS 入口进入工作台。');
-  const isDemo=new URLSearchParams(location.search).get('demo')==='1';
+  const params=new URLSearchParams(location.search);
+  const isDemo=params.get('demo')==='1',isGuest=params.get('guest')==='1';
   window.LifeOSDemoOnly=isDemo;
+  window.LifeOSGuestMode=isGuest;
   let context;
   if(isDemo){
     // Demo data lives only in this frame's memory; it never reads the user's store.
     const memory=new Map();
     context={userId:'demo-'+crypto.randomUUID(),storage:{getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,String(value)),removeItem:key=>memory.delete(key)},assertActive(){}};
+  }else if(isGuest){
+    // Local guest data is isolated under its own namespace so signed-in accounts stay untouched.
+    const GUEST_PREFIX='lifeos:guest:',ALLOWED=new Set(['lifeos_v1','baoyan_plan_v5','baoyan_plan_v4','lifeos-knowledge-v1','lifeos-workbench-view','lifeos-knowledge-view']);
+    const guestKey=key=>{if(!ALLOWED.has(String(key||'')))throw Error('Forbidden guest storage key: '+key);return GUEST_PREFIX+key;};
+    context={userId:'guest-local',storage:{getItem:key=>localStorage.getItem(guestKey(key)),setItem:(key,value)=>localStorage.setItem(guestKey(key),String(value)),removeItem:key=>localStorage.removeItem(guestKey(key))},assertActive(){},assistantRequest:parent.LifeOSGuestAssistantRequest};
   }else{
     if(!parent.LifeOSWorkspaceSession)throw Error('请先登录 LifeOS。');
     context=parent.LifeOSWorkspaceSession();
@@ -36,7 +43,7 @@ try {
   for(const original of core){const src=original.getAttribute('src');if(!src)continue;const preload=document.createElement('link');preload.rel='preload';preload.as='script';preload.href=src;document.head.append(preload);}
   document.body.style.visibility='hidden';document.body.setAttribute('aria-busy','true');
   const loading=document.createElement('p');loading.id='state';loading.setAttribute('role','status');loading.textContent='正在打开当前账户的工作台…';
-  loading.style.cssText='visibility:visible;position:fixed;inset:0;display:grid;place-items:center;margin:0;background:#071320;color:#b7cbd7;z-index:9999';document.body.append(loading);
+  loading.style.cssText='visibility:visible;position:fixed;inset:0;display:grid;place-items:center;margin:0;background:#000000;color:#86868b;z-index:9999';document.body.append(loading);
   async function loadScript(original){
     context.assertActive();
     const script=document.createElement('script');

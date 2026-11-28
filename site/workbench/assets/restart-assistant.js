@@ -51,11 +51,23 @@
   if(request){try{const value=validate(action,await request(action,input),input);if(action==='split'&&(value.tasks.some(t=>!t.deadline||!t.estimateMinutes||Date.parse(t.deadline)<Date.parse(input.start)||Date.parse(t.deadline)>Date.parse(input.deadline))||value.tasks.reduce((n,t)=>n+t.estimateMinutes,0)!==input.availableMinutes))throw Error('拆解超出时间约束');return {mode:'model',value,notice:'真实 AI 建议，确认后才保存。'};}catch(error){if(action==='parse'||action==='understand')throw error;/* Other optional explanations retain a labelled rules fallback. */}}
   if(action==='understand'){
    const text=String(input.text||'').trim();if(!text||text.length>2000)throw Error('请输入 1–2000 字的学习安排。');
-   const adjusting=/少了|减少|没空|延期|延后|推迟|暂缓|暂停|改一下|做不完/.test(text),material=/资料|文件|复习范围|摘录|正文/.test(text),amount=text.match(/(?:少了?|减少)[^，。；\n]{0,5}?([一两二三四五六七八九十\d]+)\s*(?:个)?\s*(小时|分钟)/),day=/明天|明晚/.test(text)?'tomorrow':/今天|今晚/.test(text)?'today':'unspecified',kind=/延期|延后|推迟/.test(text)?'postpone':/暂缓|暂停/.test(text)?'pause':'time';
+   const restOnly=/挺累|太累|很累|不想学|只保底|只想休息|早点休息|休息一[下晚]/.test(text)&&!/作业|复习|预习|论文|报告|交|第?\d+节/.test(text);
+   const adjusting=restOnly||/少了|减少|没空|延期|延后|推迟|暂缓|暂停|改一下|做不完/.test(text),material=/资料|文件|复习范围|摘录|正文/.test(text),amount=text.match(/(?:少了?|减少)[^，。；\n]{0,5}?([一两二三四五六七八九十\d]+)\s*(?:个)?\s*(小时|分钟)/),day=/明天|明晚/.test(text)?'tomorrow':/今天|今晚/.test(text)?'today':'unspecified',kind=/延期|延后|推迟/.test(text)?'postpone':/暂缓|暂停/.test(text)?'pause':'time';
    const taskQuery=kind==='time'?'':text.replace(/今天|今晚|明天|明晚|帮我|把|请|先|暂缓|暂停/g,'').split(/延期|延后|推迟|到/)[0].trim().slice(0,240);
-   const adjustment={day,reductionMinutes:Math.min(1440,amount?number(amount[1])*(amount[2]==='小时'?60:1):0),unavailable:/全天|一整天|整天/.test(text)&&/没空|不能学习|无法学习/.test(text),kind,taskQuery,deadline:'',deadlineText:''};
-   const hasBody=/(?:正文|摘录|复习范围)\s*[:：]/.test(text),p=parse(text,{now}),tasks=adjusting||material&&!hasBody?[]:[{title:p.title,course:'',deadline:'',deadlineText:(text.match(/下周[一二三四五六日天]?|本周[一二三四五六日天]?|明天|明晚|今晚|今天/)||[])[0]||'',estimateMinutes:p.estimateMinutes||'',priority:p.priority,notes:'规则录入，内容需由你核实。',missingInformation:[]}];
-   return {mode:'rules',value:{intent:adjusting?'adjust':material?'material':'create',summary:text.slice(0,600),firstStep:adjusting?'查看这次变化对已有任务的影响。':material&&!hasBody?'请先导入资料或粘贴真实正文。':'先确认一项可以开始的行动。',tasks,questions:['当前为示例规则录入，没有调用 AI；具体时间之后确认。'],adjustment},notice:'规则录入示例 · 没有调用 AI'};
+   const defaultRed=restOnly?(/只想休息|早点休息|不想学/.test(text)?90:60):0;
+   const adjustment={day,reductionMinutes:Math.min(1440,amount?number(amount[1])*(amount[2]==='小时'?60:1):defaultRed),unavailable:/全天|一整天|整天/.test(text)&&/没空|不能学习|无法学习/.test(text),kind,taskQuery,deadline:'',deadlineText:''};
+   const hasBody=/(?:正文|摘录|复习范围)\s*[:：]/.test(text);
+   let tasks=[];
+   if(!adjusting&&!(material&&!hasBody)){
+    const segments=text.split(/[；;\n]+|[,，]\s*(?=(?:另外|并且|以及|还有|顺便|明天|后天|今晚|今天|本周|下周|周[一二三四五六日天]))/).map(s=>s.trim()).filter(s=>s.length>=2&&!/^(?:每天最多|每天只能|今天只剩|今晚只剩)/.test(s));
+    const chunks=(segments.length>=1?segments:[text]).slice(0,3);
+    tasks=chunks.map(seg=>{
+     const p=parse(seg,{now});
+     const courseM=seg.match(/(高等数学|高数|现代汉语|古代文学|大学英语|英语|线性代数|线代|概率论|大学物理|大物|数据结构|计算机网络|专业课)/);
+     return {title:p.title,course:courseM?courseM[1]:'',deadline:'',deadlineText:(seg.match(/下周[一二三四五六日天]?|本周[一二三四五六日天]?|明天|明晚|今晚|今天|后天|周五前|周[一二三四五六日天]前/)||[])[0]||'',estimateMinutes:p.estimateMinutes||'',priority:p.priority,notes:'规则录入，内容需由你核实。',missingInformation:[]};
+    });
+   }
+   return {mode:'rules',value:{intent:adjusting?'adjust':material?'material':'create',summary:text.slice(0,600),firstStep:adjusting?'查看这次变化对已有任务的影响。':material&&!hasBody?'请先导入资料或粘贴真实正文。':(tasks.length>1?`先从第 1 项「${tasks[0].title}」开始。`:'先确认一项可以开始的行动。'),tasks,questions:['当前为本地规则梳理，没有调用 AI；具体时间与时长可按需调整。'],adjustment},notice:'规则录入示例 · 没有调用 AI'};
   }
   const value=action==='parse'?parse(input.text,{now}):action==='split'?engine.splitGoal(input):{explanation:'规则引擎已按所选策略校验可用时段、截止时间和剩余工作量。未安排与延期部分请单独确认；不会自动改变任务期限。'};
   return {mode:'rules',value,notice:request?'模型暂不可用，已回退规则模式。':'规则模式 · 未接入大模型'};

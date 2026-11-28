@@ -1,74 +1,334 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob: https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' blob: https://fhvsbesdoshelrtvgvgz.supabase.co wss://fhvsbesdoshelrtvgvgz.supabase.co https://api.deepseek.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>LifeOS — 个人成长操作系统</title>
-  <link rel="stylesheet" href="/lifeos-web/cloud.css?v=study-20261103">
-  <link rel="stylesheet" href="/lifeos-web/cinematic.css?v=study-20261103">
-  <link rel="stylesheet" href="/lifeos-web/render-upgrade.css?v=study-20261103">
-  <link rel="modulepreload" href="/lifeos-web/architecture-glb.js?v=study-20261103">
+  <title>LifeOS — 个人学习与日程重启工具</title>
+  <link rel="stylesheet" href="/lifeos-web/cloud.css?v=glass-20261125b">
+  <link rel="stylesheet" href="/lifeos-web/cinematic.css?v=glass-20261125">
+  <link rel="stylesheet" href="/lifeos-web/render-upgrade.css?v=glass-20261125">
   <script defer src="/lifeos-web/vendor/supabase.js"></script>
-  <script defer src="/lifeos-web/config.js?v=auth-config-20261124"></script>
+  <script defer src="/lifeos-web/config.js"></script>
+  <script defer src="/lifeos-web/liquid-glass-bg.js?v=glass-20261125b"></script>
   <script defer src="/lifeos-web/fluid-renderer.js"></script>
-  <script type="module" src="/lifeos-web/app.js?v=auth-config-20261124"></script>
-<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css?v=study-20261103"></head>
+  <script type="module" src="/lifeos-web/app.js?v=glass-20261126l"></script>
+<link rel="stylesheet" href="/lifeos-web/architecture-upgrade.css?v=glass-20261125"></head>
 <body data-spatial="true">
   <canvas id="fluid" aria-hidden="true"></canvas>
   <header>
-    <a class="brand" href="/lifeos-web/#space/entrance" aria-label="LifeOS 入口">LifeOS</a>
-    <nav class="space-nav" aria-label="空间导航"><button type="button" data-space-nav="entrance">入口</button><button type="button" data-space-nav="gallery">记忆长廊</button><button type="button" data-space-nav="workbench">学习工作台</button><button type="button" data-space-nav="account">我的记忆</button></nav>
-    <details class="view-settings">
+    <a class="brand" href="/lifeos-web/#space/entrance" aria-label="LifeOS 首页">LifeOS</a>
+    <nav class="space-nav" aria-label="主导航">
+      <button type="button" data-space-nav="entrance">首页</button>
+      <a class="nav-anchor" href="#showcaseWhy">今日状态</a>
+      <a class="nav-anchor" href="#showcaseTimeline">时间线</a>
+      <a class="nav-anchor" href="#showcaseImport">导入识图</a>
+      <a class="nav-anchor" href="#showcaseK">顺应生活</a>
+      <button type="button" data-space-nav="workbench" hidden>工作台</button>
+      <button type="button" data-space-nav="gallery" hidden>记忆长廊</button>
+      <button type="button" data-space-nav="account" hidden>账户</button>
+    </nav>
+    <details class="view-settings" hidden>
       <summary><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 6h14M3 14h14M7 3v6M13 11v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>设置</span></summary>
       <div class="view-settings-panel">
         <label class="mode-control" for="spaceMode">体验节奏<select id="spaceMode" aria-label="体验节奏"><option value="standard">标准</option><option value="immersive">沉浸</option><option value="reduced">减少动态</option></select></label>
         <label class="mode-control graphics-control" for="graphicsQuality">画面质量<select id="graphicsQuality" aria-label="画面质量"><option value="ultra" selected>极致</option><option value="high">高质量</option><option value="balanced">平衡</option><option value="low">低功耗</option></select></label>
       </div>
     </details>
-    <div class="actions"><button id="openWorkbench" type="button" hidden>学习工作台</button><button id="openAccount" type="button" hidden>我的记忆</button><button id="motion" type="button" aria-pressed="false">暂停背景</button><button id="topLogout" type="button" data-action="logout" hidden>退出登录</button></div>
+    <div class="actions">
+      <button id="openWorkbench" type="button" hidden>学习工作台</button>
+      <button id="openAccount" type="button" hidden>账户</button>
+      <button id="motion" type="button" aria-pressed="false" hidden>暂停背景</button>
+      <button id="heroAuthBtn" type="button">登录同步</button>
+      <button id="topWorkbenchBtn" type="button" class="nav-cta">进入工作台</button>
+      <button id="topLogout" type="button" data-action="logout" hidden>退出登录</button>
+    </div>
   </header>
-  <section id="spatialExperience" aria-label="LifeOS 私人数字建筑" data-renderer="loading" data-state="entrance">
-    <canvas id="architecture" aria-hidden="true"></canvas><div class="space-grain"></div>
-    <div id="entranceCaption" class="space-caption"><h1>让计划重新开始，<br>让成长继续发生。</h1></div>
-    <div id="galleryCaption" class="space-caption" hidden><h2>记忆长廊</h2><p id="gallerySummary">登录后查看你的记忆</p></div>
-    <nav id="entrancePortals" class="space-portals" aria-label="建筑中的入口"><button class="space-portal" data-anchor="memory" data-go="gallery" type="button"><strong>进入记忆长廊</strong></button><button class="space-portal" data-anchor="workbench" data-go="workbench" type="button"><strong>学习工作台</strong></button><button class="space-portal" data-anchor="archive" data-go="account" type="button"><strong>我的记忆</strong></button><button id="demoLaunch" class="space-portal" type="button"><strong>体验示例</strong></button></nav>
+  <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+  <section id="spatialExperience" aria-label="LifeOS · 重启计划首页" data-renderer="video" data-state="entrance">
+    <div id="heroStage" class="hero-stage">
+      <video id="heroVideo" class="hero-video" autoplay muted loop playsinline preload="auto" poster="/lifeos-web/assets/media/hero-lake-poster.jpg" src="/lifeos-web/assets/media/hero-lake.mp4" aria-hidden="true"></video>
+      <div class="hero-scrim" aria-hidden="true"></div>
+      <canvas id="architecture" aria-hidden="true" hidden></canvas>
+      <div class="space-grain" aria-hidden="true"></div>
+
+      <div id="entranceCaption" class="hero-center">
+        <h1>人不是机器，<br>计划该跟着生活走。</h1>
+        <p class="hero-subtitle">不用逼自己算今天能学几分钟。记下课表和截止日，忙了或累了就切到「只保底」，余下的温柔顺延，剩下的时间放心去生活。</p>
+
+        <form id="heroPromptForm" class="hero-prompt-box" aria-label="快速开始日程重排">
+          <label class="sr-only" for="heroPromptInput">描述你今天的安排或想休息的情况</label>
+          <textarea id="heroPromptInput" name="prompt" rows="2" maxlength="2000" placeholder="例如：每周一 1-2节 高等数学；周五前交实验报告；今晚想早点休息…"></textarea>
+          <div class="hero-prompt-bar">
+            <div class="hero-prompt-chips">
+              <button type="button" id="demoLaunch" class="hero-chip is-accent">打开工作台</button>
+              <button type="button" class="hero-chip" data-hero-demo="import">导入课表 / 识图</button>
+            </div>
+            <div class="hero-prompt-submit-wrap">
+              <span class="hero-chip-note">打开即用 · 数据保存在本机</span>
+              <button type="submit" id="heroPromptSend" class="hero-send" aria-label="放入工作台">↑</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="hero-bottom-bar">
+        <p class="hero-credit-label">LifeOS · 个人学习与日程重启工作台</p>
+        <div class="hero-pillars" aria-label="核心特性">
+          <span>不用手填空闲时间表</span>
+          <span>三档无框时间线看全局</span>
+          <span>累了切保底 · 余下温柔顺延</span>
+        </div>
+        <a class="hero-scroll-cue" href="#showcaseWhy">向下了解 ↓</a>
+      </div>
+    </div>
+
+    <div id="showcaseSections" class="showcase-sections">
+      <section id="showcaseWhy" class="showcase-band">
+        <div class="showcase-inner showcase-split">
+          <figure class="showcase-photo-card" data-reveal="left">
+            <img src="/lifeos-web/assets/media/study-lit-desk.jpg" alt="台灯下的书桌、文学教材与手写复习笔记" loading="lazy">
+            <figcaption>状态没那么好的夜晚，只把精力留给最绕不开的那一步，剩下的安心交给明天</figcaption>
+          </figure>
+          <div class="showcase-copy-card" data-reveal="right">
+            <p class="showcase-kicker">今日状态</p>
+            <h2>累了、忙了，不用把整周计划推倒重来</h2>
+            <p class="showcase-desc">生活本来就有突发状况。切一下你今天的状态——系统按截止日轻重，帮你挑出今天最绕不开的一小步，其余的自动顺到后面空闲，不留红字焦虑。</p>
+
+            <div class="showcase-gantt" id="homeSim" aria-label="交互式今日状态演示">
+              <div class="sim-controls">
+                <div class="sim-group" role="group" aria-label="切换日常学生场景">
+                  <button type="button" class="sim-pill is-active" data-sim-scene="course">今晚临时有局</button>
+                  <button type="button" class="sim-pill" data-sim-scene="exam">期末周撞车</button>
+                  <button type="button" class="sim-pill" data-sim-scene="paper">赶论文 + 开会</button>
+                </div>
+                <div class="sim-group" role="group" aria-label="选择你今天的状态">
+                  <button type="button" class="sim-pill is-active" data-sim-state="light">今天挺累 · 只保底</button>
+                  <button type="button" class="sim-pill" data-sim-state="normal">正常节奏</button>
+                  <button type="button" class="sim-pill" data-sim-state="sprint">状态好 · 多推一点</button>
+                </div>
+              </div>
+              <div class="gantt-row" data-reveal="up" data-reveal-delay="1">
+                <div class="gantt-label"><span>手头压着的事</span><b id="simRawTotal">共 3 件待办</b></div>
+                <div class="gantt-track gantt-raw" id="simRawTrack">
+                  <span class="gantt-seg seg-lit">现代汉语复习（大块）</span>
+                  <span class="gantt-seg seg-eng">英语写作（中等）</span>
+                  <span class="gantt-seg seg-read">课外阅读（不急）</span>
+                </div>
+              </div>
+              <div class="gantt-row is-focus" data-reveal="up" data-reveal-delay="2">
+                <div class="gantt-label"><span id="simKeptTitle">今天先只看这一步（只保底）</span><b id="simKeptMeta">留 1 步最急的事 · 做完就能安心休息</b></div>
+                <div class="gantt-track gantt-kept" id="simKeptTrack">
+                  <span class="gantt-seg seg-p1">先理清第一章重点</span>
+                  <span class="gantt-seg seg-p2">过一遍例题即可</span>
+                </div>
+              </div>
+              <div class="gantt-row" data-reveal="up" data-reveal-delay="3">
+                <div class="gantt-label"><span>其余温柔顺延到后面</span><b id="simDeferTotal">2 件放心交给改天</b></div>
+                <div class="gantt-defer-list" id="simDeferList">
+                  <span>① 现代汉语余下部分自动衔接到周末空闲</span>
+                  <span>② 课外阅读没有硬性期限，优先让路给生活</span>
+                  <span>③ 英语写作练习顺延至下周开课前</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="showcase-actions">
+              <button type="button" class="showcase-btn-primary" id="simLaunchBtn" data-hero-demo="overview">打开我的时间线 →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="showcaseTimeline" class="showcase-band showcase-band-alt">
+        <div class="showcase-inner showcase-split showcase-split-reverse">
+          <div class="showcase-copy-card" data-reveal="left">
+            <p class="showcase-kicker">光轨推进式时间线</p>
+            <h2>滑到哪一天，光就亮到哪一天；未来的日子温柔留暗</h2>
+            <p class="showcase-desc">不再是一格一格死板的月历方块，也没有吓人的 08:00–22:00 闹钟压迫。沿着中间一条连续光轨从「年 · 月」滑向具体日期再展开「早 / 中 / 晚」：滑过的日期亮起微光，没走到的未来保持暗淡，一眼看清今天在哪、课表怎么分布。</p>
+
+            <div class="showcase-tl-card" id="homeTimelinePreview" aria-label="交互式时间线光轨预览">
+              <div class="home-tl-head">
+                <strong id="homeTlDateTitle">11 月 25 日 · 今天</strong>
+                <span id="homeTlDateMeta">2 节课程 · 晚间安排现代汉语重点整理</span>
+              </div>
+              <div class="home-tl-rail">
+                <div class="home-tl-beam-base" aria-hidden="true"></div>
+                <div class="home-tl-beam-lit" id="homeTlBeamLit" aria-hidden="true"></div>
+                <div class="home-tl-ticks" id="homeTlTicks" role="group" aria-label="点击或滑动选择日期预览">
+                  <button type="button" class="home-tl-tick is-past" data-tl-idx="0"><i></i><span>21</span><small>周六</small></button>
+                  <button type="button" class="home-tl-tick is-past" data-tl-idx="1"><i></i><span>22</span><small>周日</small></button>
+                  <button type="button" class="home-tl-tick is-past" data-tl-idx="2"><i></i><span>23</span><small>前天</small></button>
+                  <button type="button" class="home-tl-tick is-past" data-tl-idx="3"><i></i><span>24</span><small>昨天</small></button>
+                  <button type="button" class="home-tl-tick is-active" data-tl-idx="4"><i></i><span>25</span><small>今天</small></button>
+                  <button type="button" class="home-tl-tick is-future" data-tl-idx="5"><i></i><span>26</span><small>明天</small></button>
+                  <button type="button" class="home-tl-tick is-future" data-tl-idx="6"><i></i><span>27</span><small>后天</small></button>
+                  <button type="button" class="home-tl-tick is-future" data-tl-idx="7"><i></i><span>28</span><small>周六</small></button>
+                  <button type="button" class="home-tl-tick is-future" data-tl-idx="8"><i></i><span>29</span><small>周日</small></button>
+                </div>
+              </div>
+              <div class="home-tl-slider-row">
+                <span>往回滑亮起 · 往后保持安静</span>
+                <input id="homeTlSlider" type="range" min="0" max="8" value="4" aria-label="滑动预览时间线明暗推进效果">
+              </div>
+            </div>
+
+            <div class="showcase-actions">
+              <button type="button" class="showcase-btn-secondary" data-hero-demo="overview">进工作台亲自滑一滑 →</button>
+            </div>
+          </div>
+          <figure class="showcase-photo-card" data-reveal="right">
+            <img src="/lifeos-web/assets/media/study-sunlit-library.jpg" alt="阳光洒进大学校园图书馆的木桌、绿树窗景与摊开的教材笔记本" loading="lazy">
+            <figcaption>把几周的课表与 DDL 收纳进一条连续时间线里，看清前后节奏再动笔</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="showcaseImport" class="showcase-band">
+        <div class="showcase-inner">
+          <div class="showcase-atrium-hero" data-reveal="scale">
+            <img src="/lifeos-web/assets/media/study-modern-atrium.jpg" alt="现代极简大学图书馆落地窗全景大厅" loading="lazy">
+            <div class="showcase-atrium-overlay">
+              <p class="showcase-kicker">一键导入 · 识图归纳</p>
+              <h2>截一张课表、群通知或手写便签，<br>直接归纳放上时间线</h2>
+              <p class="showcase-desc">开学不用一条条手动抄课表。直接上传或 Ctrl+V 粘贴教务系统截图、群通知截图、.ics 日历文件或 .csv 表格——先自动提取文字，再由 LifeOS 按你的日常作息归纳出固定课程、待办事项与轻重缓急。</p>
+              <div class="showcase-actions">
+                <button type="button" class="showcase-btn-primary" data-hero-demo="import">去工作台导入课表或截图 →</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="showcase-import-grid">
+            <article class="showcase-step-card" data-reveal="up" data-reveal-delay="1">
+              <span class="showcase-step-num" aria-hidden="true">01</span>
+              <h4>.ics / .csv / 文本课表秒导入</h4>
+              <p>兼容常见高校教务日历文件、WakeUp 导出的课表文本及表格；每周一到周日课程直接落入「上午 / 下午 / 晚上」，不显示杂乱的死板分钟刻度。</p>
+            </article>
+            <article class="showcase-step-card" data-reveal="up" data-reveal-delay="2">
+              <span class="showcase-step-num" aria-hidden="true">02</span>
+              <h4>截图与手写便签自动识别文字</h4>
+              <p>支持直接拖图、选图或页面内 Ctrl+V 粘贴手机截图，离线与本地环境同样能抽出关键文字并保留可编辑原文。</p>
+            </article>
+            <article class="showcase-step-card" data-reveal="up" data-reveal-delay="3">
+              <span class="showcase-step-num" aria-hidden="true">03</span>
+              <h4>LifeOS 自动对应归纳分析</h4>
+              <p>把零散通知整理成清晰的「课程 / 截止任务 / 体感份量」预览清单，勾选微调后点一下，全部放上时间线且支持一键撤销。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="showcaseK" class="showcase-band showcase-band-alt">
+        <div class="showcase-inner">
+          <div class="showcase-split">
+            <figure class="showcase-photo-card" data-reveal="left">
+              <img src="/lifeos-web/assets/media/study-planner.jpg" alt="学习时间规划笔记本与钢笔" loading="lazy">
+              <figcaption>生活永远排在计划前面——看清轻重缓急后，剩下的时间都属于你自己</figcaption>
+            </figure>
+            <div class="showcase-copy-card" data-reveal="right">
+              <p class="showcase-kicker">尊重生活</p>
+              <h2>不拿时间格子审问人，把时间线变成安心地图</h2>
+              <p class="showcase-desc">好用的学习工具不是把你的每分钟塞满 KPI，而是帮你看清课表和 DDL 之间还留着大把自由空间。没做完不红字催你，觉得自己慢一点也没关系，系统会默默跟上你的真实节奏。</p>
+              <div class="showcase-stat-grid">
+                <div data-reveal="up" data-reveal-delay="1"><strong>只挑当下最急一步</strong><span>太短的零散时间不硬塞，累了就顺手切「只保底」</span></div>
+                <div data-reveal="up" data-reveal-delay="2"><strong>按体感选任务份量</strong><span>随手就能做 / 坐一会能完 / 大块分几次，不用猜几分钟</span></div>
+                <div data-reveal="up" data-reveal-delay="3"><strong>学习资料直连任务</strong><span>内置常备开源资料库与本地文件入口，做哪科直接打开</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="showcase-triptych" aria-label="真实的大学学习日常画面">
+            <figure class="showcase-triptych-card" data-reveal="up" data-reveal-delay="1">
+              <img src="/lifeos-web/assets/media/study-night-student.jpg" alt="深夜在自习室窗边低头认真书写笔记的同学" loading="lazy">
+              <figcaption><strong>夜深困了就切「只保底」</strong><span>先推完最绕不开的那一段，剩下的安心交给明天空档。</span></figcaption>
+            </figure>
+            <figure class="showcase-triptych-card" data-reveal="up" data-reveal-delay="2">
+              <img src="/lifeos-web/assets/media/study-minimal-notebook.jpg" alt="柔和光影下桌面摊开的空白笔记本、钢笔与水杯" loading="lazy">
+              <figcaption><strong>自然留白的上午、下午与夜晚</strong><span>留白本来就是大学生活的一部分，没必要填满每个空格。</span></figcaption>
+            </figure>
+            <figure class="showcase-triptych-card" data-reveal="up" data-reveal-delay="3">
+              <img src="/lifeos-web/assets/media/study-rain-desk.jpg" alt="雨天窗边暖灯与绿植陪伴的宿舍书桌" loading="lazy">
+              <figcaption><strong>雨天慢一点也没关系</strong><span>遇到没做完的待办没有红字倒计时，只会安静往后顺延。</span></figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="showcaseClosing" class="showcase-closing-band" aria-label="开启你的学习时间线">
+        <div class="showcase-closing-media">
+          <img src="/lifeos-web/assets/media/study-dusk-window.jpg" alt="傍晚蓝调时刻通透安静的大学图书馆阅览区" loading="lazy">
+          <div class="showcase-closing-scrim" aria-hidden="true"></div>
+        </div>
+        <div class="showcase-inner showcase-closing-inner" data-reveal="up">
+          <div>
+            <p class="showcase-kicker">本地直用 · 开源资料库衔接</p>
+            <h2>现在就打开属于你的时间线工作台</h2>
+            <p>所有日程、任务、资料目录默认保存在当前浏览器本地，免注册也能完整使用导入课表、识图归纳与三档时间线；需要跨设备备忘再随时登录同步。</p>
+          </div>
+          <div class="showcase-actions">
+            <button type="button" class="showcase-btn-light" data-hero-demo="overview">立即打开时间线 →</button>
+            <button type="button" class="showcase-btn-secondary" data-hero-demo="import">先导课表或截图试一试</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="galleryCaption" class="space-caption" hidden><h2>记忆长廊</h2><p id="gallerySummary"></p></div>
+    <nav id="entrancePortals" class="space-portals" aria-label="快捷入口" hidden><button class="space-portal" data-anchor="memory" data-go="gallery" type="button"><strong>进入记忆长廊</strong></button><button class="space-portal" data-anchor="workbench" data-go="workbench" type="button"><strong>学习工作台</strong></button><button class="space-portal" data-anchor="archive" data-go="account" type="button"><strong>账户管理</strong></button></nav>
     <div id="exhibitButtons" aria-label="展出的记忆" hidden></div>
-    <div id="galleryEmpty" hidden><p id="galleryEmptyText"></p><button data-go="account" type="button">保存记忆 / 选择展板</button></div>
-    <details id="galleryTools" hidden><summary>筛选记忆</summary><div class="gallery-filter-fields"><label>年份<select id="galleryYear"><option value="">所有年份</option></select></label><label>主题<select id="galleryCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><button id="galleryRefresh" type="button">刷新记忆</button><button data-go="account" type="button">我的记忆</button></div></details>
-    <div id="galleryBrowser" hidden aria-label="逐件浏览记忆"><button id="galleryPrevious" type="button">上一件</button><span id="galleryPosition" role="status">0 / 0</span><button id="galleryRead" type="button">阅读这段记忆</button><button id="galleryNext" type="button">下一件</button></div>
+    <div id="galleryEmpty" hidden><p id="galleryEmptyText"></p><button data-go="account" type="button">返回账户</button></div>
+    <details id="galleryTools" hidden><summary>筛选记忆</summary><div class="gallery-filter-fields"><label>年份<select id="galleryYear"><option value="">所有年份</option></select></label><label>主题<select id="galleryCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><button id="galleryRefresh" type="button">刷新</button><button data-go="account" type="button">账户</button></div></details>
+    <div id="galleryBrowser" hidden aria-label="逐件浏览"><button id="galleryPrevious" type="button">上一件</button><span id="galleryPosition" role="status">0 / 0</span><button id="galleryRead" type="button">阅读</button><button id="galleryNext" type="button">下一件</button></div>
     <button id="spaceSkip" type="button" hidden>直接打开</button>
-    <div class="space-bottom"><p id="renderStatus" role="status" aria-live="polite">正在加载建筑…</p></div><p id="spaceNarration" role="status" aria-live="polite"></p>
+    <div class="space-bottom" hidden><p id="renderStatus" role="status" aria-live="polite"></p></div><p id="spaceNarration" role="status" aria-live="polite"></p>
   </section>
-  <dialog id="memoryDetail" aria-labelledby="detailTitle"><div class="detail-head"><span id="detailMeta"></span><button id="detailClose" type="button">返回长廊</button></div><div class="detail-body"><h2 id="detailTitle"></h2><p id="detailContent"></p><p id="detailSource"></p><p id="detailPrivacy"></p><p id="detailStatus" role="alert"></p><section id="detailReflections" aria-label="后来的感想"></section><div class="detail-actions"><button id="detailEdit" type="button">编辑原记录</button><button id="detailReflect" type="button">添加新的感想</button><button id="detailHide" type="button">从展览隐藏</button></div></div></dialog>
+
+  <dialog id="memoryDetail" aria-labelledby="detailTitle"><div class="detail-head"><span id="detailMeta"></span><button id="detailClose" type="button">关闭</button></div><div class="detail-body"><h2 id="detailTitle"></h2><p id="detailContent"></p><p id="detailSource"></p><p id="detailPrivacy"></p><p id="detailStatus" role="alert"></p><section id="detailReflections" aria-label="补充感想"></section><div class="detail-actions"><button id="detailEdit" type="button">编辑</button><button id="detailReflect" type="button">添加感想</button><button id="detailHide" type="button">隐藏</button></div></div></dialog>
+
   <main id="functionalSurface" aria-label="LifeOS 功能界面" hidden>
     <p id="notice" role="status" aria-live="polite" hidden></p>
-    <noscript>请启用 JavaScript 后使用注册、登录和云端记忆。</noscript>
+    <noscript>请启用 JavaScript 后使用注册、登录和学习工作台。</noscript>
     <section id="businessWorkspace" hidden aria-label="LifeOS 学习工作台"><div id="workbenchHost"></div></section>
-    <section id="auth" class="panel" hidden aria-label="账户登录">
-      <div class="tabs"><button type="button" data-mode="login" aria-pressed="true">登录</button><button type="button" data-mode="signup" aria-pressed="false">注册</button><button type="button" data-mode="forgot" aria-pressed="false">忘记密码</button></div>
-      <h2 id="authTitle">欢迎回来</h2>
-      <form id="authForm">
-        <label>邮箱<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
-        <label id="authPassword">密码<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
-        <p id="passwordHint" class="muted">使用你在 LifeOS 注册的账户登录。</p>
-        <button class="primary" id="authSubmit" type="submit">登录</button>
-      </form>
-      <button id="resend" type="button" class="text-button">重新发送注册验证邮件</button>
-      <p class="muted">如果你此前收到的是邀请邮件、尚未设置密码，可以先使用“忘记密码”设置密码。</p>
+
+    <section id="auth" class="panel auth-editorial" hidden aria-label="账户登录">
+      <div class="auth-editorial-media">
+        <img src="/lifeos-web/assets/media/study-rain-desk.jpg" alt="雨天窗边书桌与复习笔记">
+        <div class="auth-editorial-quote">
+          <span>LifeOS · 重启计划</span>
+          <strong>计划被打乱没关系，从今天还剩下的时间重新开始。</strong>
+          <p>也可以先回到本地时间线，免登录直接管理课表、导入截图与每日安排。</p>
+          <button type="button" class="auth-demo-shortcut" data-hero-demo="overview">免登录打开本地工作台 →</button>
+        </div>
+      </div>
+      <div class="auth-editorial-body">
+        <div class="auth-top-row"><button type="button" id="authBackHome" class="auth-back-link">← 返回首页</button></div>
+        <div class="tabs"><button type="button" data-mode="login" aria-pressed="true">登录</button><button type="button" data-mode="signup" aria-pressed="false">注册</button><button type="button" data-mode="forgot" aria-pressed="false">忘记密码</button></div>
+        <h2 id="authTitle">欢迎回来</h2>
+        <form id="authForm">
+          <label>邮箱<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="name@example.com"></label>
+          <label id="authPassword">密码<input name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="输入账户密码"></label>
+          <p id="passwordHint" class="muted">使用你在 LifeOS 注册的账户登录。</p>
+          <button class="primary" id="authSubmit" type="submit">登录</button>
+        </form>
+        <button id="resend" type="button" class="text-button">重新发送注册验证邮件</button>
+        <p class="muted auth-foot-tip">此前收到邀请邮件但未设置密码的用户，可点击上方“忘记密码”设置新密码。</p>
+      </div>
     </section>
+
     <section id="reset" class="panel" hidden>
-      <h2>设置账户密码</h2><p class="muted">请输入至少 12 位的新密码。邀请或恢复链接失效时，请重新申请重置邮件。</p>
+      <h2>设置账户密码</h2><p class="muted">请输入至少 12 位的新密码。链接失效时，请重新申请重置邮件。</p>
       <form id="resetForm"><label>新密码<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><label>再次输入<input name="confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><button class="primary" type="submit">保存密码</button></form>
       <button type="button" data-action="logout">退出此账户</button>
     </section>
+
     <section id="workspace" hidden>
-      <div class="workspace-head"><div><h2>我的记忆</h2><p id="identity" class="muted"></p></div><div class="actions"><button id="newMemory" type="button">写一段记忆</button><button id="refresh" type="button">刷新云端数据</button><button id="export" type="button">导出资料与记忆</button><button type="button" data-action="logout">退出登录</button></div></div>
-      <section class="panel" id="memoryArchive"><div class="workspace-head"><h3>已保存的记忆</h3><label class="search">搜索<input id="search" type="search" placeholder="内容或来源"></label></div><p class="muted">选择「加入长廊」后才会展出，最多 8 条。全部记忆均保留在此，按创建年份归档。</p><div class="archive-filters"><label>年份<select id="archiveYear"><option value="">所有年份</option></select></label><label>主题<select id="archiveCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info">重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label></div><p id="count" class="muted"></p><div id="memories"></div></section>
+      <div class="workspace-head"><div><h2>我的账户与云端随手记</h2><p id="identity" class="muted"></p></div><div class="actions"><button id="newMemory" type="button">写一条备忘</button><button id="refresh" type="button">刷新云端数据</button><button id="export" type="button">导出数据</button><button type="button" data-action="logout">退出登录</button></div></div>
+      <section class="panel" id="memoryArchive"><div class="workspace-head"><h3>云端随手记</h3><label class="search">搜索<input id="search" type="search" placeholder="内容或来源"></label></div><p class="muted">这里同步保存你的学习备忘与账户备注，任务计划请在工作台管理。</p><div class="archive-filters"><label>年份<select id="archiveYear"><option value="">所有年份</option></select></label><label>主题<select id="archiveCategory"><option value="">所有主题</option><option value="goal">长期目标</option><option value="preference">学习偏好</option><option value="milestone">阶段总结</option><option value="reflection">复盘反思</option><option value="important_info">重要提醒</option><option value="experience">学习心得</option><option value="plan_change">计划变动</option></select></label></div><p id="count" class="muted"></p><div id="memories"></div></section>
       <div class="columns">
-        <details id="profileDetails" class="panel"><summary>个人资料</summary><form id="profileForm"><label>称呼<input name="display_name" maxlength="100"></label><label>个人介绍<textarea name="bio" maxlength="2000" rows="4"></textarea></label><button type="submit">保存资料</button></form><p class="muted">这里保存的资料与你的账户关联。旧站个人档案尚未迁移。</p></details>
-        <details id="memoryComposer" class="panel"><summary id="memoryTitle">写一段记忆</summary><form id="memoryForm"><label>类别<select name="category"><option value="goal">长期目标</option><option value="preference">兴趣与学习偏好</option><option value="milestone">成长里程碑</option><option value="reflection">个人反思</option><option value="important_info" selected>重要信息</option><option value="experience">重要经历</option><option value="plan_change">计划变更</option></select></label><label>内容<textarea name="content" required maxlength="10000" rows="4" placeholder="只保存你主动选择留下的信息"></textarea></label><label>来源说明<input name="source" value="manual" maxlength="500" required></label><label class="check"><input name="enabled" type="checkbox" checked>启用这条记忆</label><label class="check"><input name="ai_allowed" type="checkbox">允许未来 AI 使用这条记忆（当前尚未接入 AI）</label><div class="actions"><button class="primary" type="submit">保存到云端</button><button id="cancelEdit" type="button" hidden>取消编辑</button></div></form></details>
+        <details id="profileDetails" class="panel"><summary>个人资料</summary><form id="profileForm"><label>称呼<input name="display_name" maxlength="100"></label><label>个人简介<textarea name="bio" maxlength="2000" rows="4"></textarea></label><button type="submit">保存资料</button></form></details>
+        <details id="memoryComposer" class="panel"><summary id="memoryTitle">写一条备忘</summary><form id="memoryForm"><label>类别<select name="category"><option value="goal">长期目标</option><option value="preference">学习偏好</option><option value="milestone">阶段总结</option><option value="reflection">复盘反思</option><option value="important_info" selected>重要提醒</option><option value="experience">学习心得</option><option value="plan_change">计划变动</option></select></label><label>内容<textarea name="content" required maxlength="10000" rows="4" placeholder="写下需要留存的学习备忘"></textarea></label><label>来源说明<input name="source" value="manual" maxlength="500" required></label><label class="check"><input name="enabled" type="checkbox" checked>启用这条备忘</label><label class="check"><input name="ai_allowed" type="checkbox">允许工作台辅助参考</label><div class="actions"><button class="primary" type="submit">保存到云端</button><button id="cancelEdit" type="button" hidden>取消编辑</button></div></form></details>
       </div>
     </section>
   </main>
-  <footer>账户由 Supabase 管理。公用设备使用后请退出登录。云端同步不等同于独立备份。</footer>
+  <footer>LifeOS · 个人学习与日程重启工作台</footer>
 </body></html>

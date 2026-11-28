@@ -49,6 +49,7 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     if(root.dataset.renderer==='fallback')return null;
     root.dataset.moving='false';$('renderStatus').textContent='正在载入建筑…';
     const loadingStarted=performance.now();scenePromise=loadArchitecture().then(async module=>{
+      if(!module){root.dataset.renderer='video';$('renderStatus').textContent='';return null;}
       let expired=false,timer;const pending=module.createArchitecture($('architecture'),project,fallback,quality,id=>navigate('memory/'+id),progress=>{if(scene||root.dataset.renderer==='fallback')return;if(progress.phase==='download'){$('renderStatus').textContent=`正在下载建筑 ${Math.min(100,Math.floor(progress.loaded/progress.total*100))}%（${(progress.loaded/1048576).toFixed(1)} / ${(progress.total/1048576).toFixed(1)} MB）`;root.dataset.assetBytes=String(progress.total);}else if(progress.phase==='decode'){root.dataset.backgroundDecode=String(progress.background);$('renderStatus').textContent='正在解码建筑资源…';}else $('renderStatus').textContent=progress.phase==='lighting'?'正在还原建筑光照…':'正在准备建筑画面…';});pending.then(value=>{if(expired)value.destroy();},()=>{});try{scene=await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(new Error('建筑加载超时'));},90000);})]);}finally{clearTimeout(timer);}scene.setMode(effective());scene.setMemories(selectedRows());root.dataset.renderer='webgl';root.dataset.loadMs=String(Math.round(performance.now()-loadingStarted));$('renderStatus').textContent='';scene.setActive(!surfaceName);return scene;
     }).catch(()=>{fallback();return null;});return scenePromise;
   }
@@ -114,7 +115,10 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
       onView(next);carrier.scrollTop=scrollPositions[next]||0;$('spaceNarration').textContent=next==='workbench'?'已打开学习工作台':'已打开我的记忆';return;
     }
     if(!surfaceName){carrier.hidden=true;document.body.dataset.spatial='true';document.body.dataset.surface='';onView('spatial');}
-    $('entranceCaption').hidden=next!=='entrance';$('entrancePortals').hidden=next!=='entrance';
+    $('entranceCaption').hidden=next!=='entrance';$('entrancePortals').hidden=true;
+    const heroStage=$('heroStage'),showcase=$('showcaseSections');
+    if(heroStage)heroStage.hidden=next!=='entrance';
+    if(showcase)showcase.hidden=next!=='entrance';
     const actualScene=await ensureScene();if(mine!==serial)return;root.style.visibility='';actualScene?.setActive(true);root.dataset.moving='true';
     if(surfaceName){
       const outgoing=surfaceName;scrollPositions[outgoing]=carrier.scrollTop;
@@ -125,7 +129,9 @@ export function createSpatialExperience({onView,onEdit,onReflect,onExhibit,onRef
     root.dataset.state=next.startsWith('memory/')?'detail':next;
     const gallery=next==='gallery'||next.startsWith('memory/');
     $('galleryTools').hidden=!gallery;$('entranceCaption').hidden=next!=='entrance';
-    $('galleryCaption').hidden=!gallery;$('entrancePortals').hidden=next!=='entrance';
+    $('galleryCaption').hidden=!gallery;$('entrancePortals').hidden=true;
+    if(heroStage)heroStage.hidden=next!=='entrance';
+    if(showcase)showcase.hidden=next!=='entrance';
     $('exhibitButtons').hidden=!gallery;$('galleryEmpty').hidden=!gallery||selectedRows().length>0;
     document.querySelectorAll('[data-space-nav]').forEach(button=>button.setAttribute('aria-current',button.dataset.spaceNav===next?'page':'false'));
     if(next.startsWith('memory/')){

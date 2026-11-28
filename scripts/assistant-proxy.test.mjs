@@ -61,3 +61,44 @@ test('diagnostic logger failures cannot bypass durable accounting or expose raw 
  const transport=fixture({providerError:Error('secret transport data')}),failure=await transport.handler(request()),body=await failure.json();
  assert.equal(body.code,'MODEL_UNAVAILABLE');assert.deepEqual(transport.diagnostics,[{requestId:body.requestId,model:'deepseek-flash',httpStatus:null}]);
 });
+test('analyze_import validates structured OCR timetable and task analysis output',async()=>{
+ const out={summary:'已整理 1 门课与 1 项待办',insights:['周一上午有课程安排'],bellSchedule:[{section:1,start:'08:00',end:'08:45',period:'morning'},{section:5,start:'13:30',end:'14:15',period:'afternoon'}],classes:[{title:'高等数学',weekday:1,date:'',section:'1-2',period:'morning',location:'A201',recurrence:'weekly'}],tasks:[{title:'高数第一章习题',course:'高等数学',due:'2026-11-28',effortFeel:'medium',priority:'high',notes:'周五提交'}],dayAdjustments:[]};
+ const h=fixture({output:out});const res=await h.handler(request({action:'analyze_import',payload:{text:'每周一 1-2节 高等数学 (A201)\n周五前交高数第一章习题',sourceKind:'image',today:'2026-11-25'}}));
+ assert.equal(res.status,200);const body=await res.json();assert.equal(body.value.classes[0].title,'高等数学');assert.equal(body.value.tasks[0].effortFeel,'medium');assert.equal(body.value.bellSchedule.length,2);assert.equal(body.value.bellSchedule[1].period,'afternoon');
+ const badBell=fixture({output:{...out,bellSchedule:[{section:5,start:'14:00',end:'13:00',period:'afternoon'}]}});
+ assert.equal((await badBell.handler(request({action:'analyze_import',payload:{text:'作息表',sourceKind:'note',today:'2026-11-25'}}))).status,502);
+});
+test('school_portals validates official http/https portals and rejects javascript URLs',async()=>{
+ const out={schoolName:'清华大学',officialDomain:'tsinghua.edu.cn',note:'请先核对再保存',portals:[{name:'教务处',category:'教务处',url:'https://jwc.tsinghua.edu.cn/',notes:'选课与课表'},{name:'图书馆',category:'图书馆',url:'https://lib.tsinghua.edu.cn/',notes:'馆藏检索'}]};
+ const h=fixture({output:out});
+ const res=await h.handler(request({action:'school_portals',payload:{schoolName:'清华大学'}}));
+ assert.equal(res.status,200);
+ const body=await res.json();
+ assert.equal(body.value.schoolName,'清华大学');
+ assert.equal(body.value.portals.length,2);
+ const bad=fixture({output:{...out,portals:[{name:'XSS',category:'教务处',url:'javascript:alert(1)',notes:'bad'}]}});
+ assert.equal((await bad.handler(request({action:'school_portals',payload:{schoolName:'清华大学'}}))).status,502);
+});
+test('strategize validates 3-tier options, real task refs and supports multi-origin CORS',async()=>{
+ const out={
+  diagnosis:'周一课满适合多休息，周三最整块。',
+  options:[{
+   id:'opt_balanced',recommended:true,badge:'适合这周',title:'错峰稳推',
+   headlineValue:'每天约 35 分钟',headlineSub:'避开周一满课',
+   advice:'把任务拆到周二和周三，周六留白。',benefits:['✓ 周一不加压'],
+   avoidWeekdays:[1],preferWeekdays:[3],
+   tasksToCreate:[{title:'复习高数重点',course:'高等数学',due:'2026-11-28',estimateMinutes:45,schedulePriority:'high',splittable:true,notes:''}],
+   taskUpdates:[{id:'t-real',action:'promote',due:''}],
+   dayAdjustments:[{day:'today',reductionMinutes:60,unavailable:false}],
+   allowLateOverride:false
+  }]
+ };
+ const h=fixture({env:{AI_ALLOWED_ORIGIN:'https://lifeos.pages.dev,https://my-lifeos.com'},output:out});
+ const res=await h.handler(request({action:'strategize',payload:{text:'下周高数考试帮我重排',today:'2026-11-25',calendar:[{date:'2026-11-25',weekday:3,freeMinutes:240,classes:[]}],openTasks:[{id:'t-real',title:'高数作业',course:'高等数学',deadline:'',estimateMinutes:60,progress:0,priority:'high'}]}},{Origin:'https://my-lifeos.com'}));
+ assert.equal(res.status,200);
+ assert.equal(res.headers.get('Access-Control-Allow-Origin'),'https://my-lifeos.com');
+ const body=await res.json();
+ assert.equal(body.value.options[0].title,'错峰稳推');
+ const forgedRef=fixture({output:{...out,options:[{...out.options[0],taskUpdates:[{id:'fake-id',action:'promote',due:''}]}]}});
+ assert.equal((await forgedRef.handler(request({action:'strategize',payload:{text:'重排',today:'2026-11-25',calendar:[],openTasks:[]}}))).status,502);
+});

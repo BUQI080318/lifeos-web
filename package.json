@@ -1,0 +1,14 @@
+{
+  "name": "lifeos-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LifeOS — 个人学习与日程重启工作台（独立域名生产服务）",
+  "scripts": {
+    "build": "node scripts/build-static.mjs",
+    "start": "node server/index.mjs",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

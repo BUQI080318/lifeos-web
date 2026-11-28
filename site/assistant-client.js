@@ -30,7 +30,7 @@ export function createAssistantRequest({client,url,publishableKey,userId,assertA
   return requestStates.get(scope);
  }
  const request=async(action,payload)=>{
-  assertActive();if(!['parse','understand','split','explain'].includes(action))throw failure('INVALID_INPUT');
+  assertActive();if(!['parse','understand','split','explain','analyze_import','school_portals','strategize'].includes(action))throw failure('INVALID_INPUT');
   const current=state();
   if(current.pending)throw failure('REQUEST_IN_PROGRESS');
   const remaining=Math.ceil((current.until-now())/1000);if(remaining>0)throw failure(current.code,remaining);

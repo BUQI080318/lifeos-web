@@ -1,0 +1,433 @@
+[
+  {
+    "id": "C1",
+    "title": "前置校验：无时长 / 无锚点 / 未到开始日",
+    "today": "2026-11-24",
+    "k": 1.0,
+    "horizon_days": 0,
+    "tasks": [
+      {
+        "id": "t1",
+        "name": "没写时长",
+        "estimate_min": null,
+        "deadline": "2026-11-28",
+        "priority": "high",
+        "splittable": false,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      },
+      {
+        "id": "t2",
+        "name": "既无截止也无优先级",
+        "estimate_min": 60,
+        "deadline": null,
+        "priority": "none",
+        "splittable": false,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      },
+      {
+        "id": "t3",
+        "name": "还没到开始日",
+        "estimate_min": 60,
+        "deadline": "2026-12-05",
+        "priority": "high",
+        "splittable": false,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0,
+        "start_date": "2026-12-01"
+      },
+      {
+        "id": "t4",
+        "name": "正常任务",
+        "estimate_min": 60,
+        "deadline": "2026-11-30",
+        "priority": "high",
+        "splittable": true,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      }
+    ],
+    "days": [
+      {
+        "day": "2026-11-24",
+        "windows": [
+          [
+            540,
+            240
+          ]
+        ]
+      }
+    ],
+    "expect": {
+      "invalid_ids": [
+        "t1",
+        "t2"
+      ],
+      "deferred_ids": [
+        "t3"
+      ],
+      "scheduled_first": "t4"
+    }
+  },
+  {
+    "id": "C2",
+    "title": "BP 3.2 案例：390 分钟任务只剩 90 分钟",
+    "today": "2026-11-24",
+    "k": 1.0,
+    "horizon_days": 0,
+    "tasks": [
+      {
+        "id": "m1",
+        "name": "现代汉语章节复习",
+        "estimate_min": 180,
+        "deadline": "2026-11-30",
+        "priority": "high",
+        "splittable": true,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      },
+      {
+        "id": "e1",
+        "name": "英语写作练习",
+        "estimate_min": 90,
+        "deadline": "2026-12-02",
+        "priority": "medium",
+        "splittable": true,
+        "min_chunk": 30,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      },
+      {
+        "id": "r1",
+        "name": "课外阅读",
+        "estimate_min": 120,
+        "deadline": null,
+        "priority": "low",
+        "splittable": true,
+        "min_chunk": 20,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      }
+    ],
+    "days": [
+      {
+        "day": "2026-11-24",
+        "windows": [
+          [
+            540,
+            90
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-25",
+        "windows": [
+          [
+            540,
+            180
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-26",
+        "windows": [
+          [
+            540,
+            180
+          ]
+        ]
+      }
+    ],
+    "expect": {
+      "capacity_raw_min": 90,
+      "scheduled_ids_in_order": [
+        "m1"
+      ],
+      "m1_status": "partially",
+      "m1_placed_min": 90,
+      "remainder_ids": [
+        "m1"
+      ],
+      "remainder_min": 90,
+      "dropped_ids_in_order": [
+        "r1",
+        "e1"
+      ],
+      "dropped_costs": {
+        "r1": 0.0,
+        "e1": 0.0611
+      }
+    }
+  },
+  {
+    "id": "C3",
+    "title": "接个人系数 k 后的完整一周",
+    "today": "2026-11-24",
+    "k_source": [
+      [
+        60,
+        95
+      ],
+      [
+        30,
+        40
+      ],
+      [
+        45,
+        70
+      ],
+      [
+        20,
+        25
+      ],
+      [
+        90,
+        120
+      ]
+    ],
+    "horizon_days": 7,
+    "tasks": [
+      {
+        "id": "a",
+        "name": "小组作业汇报稿",
+        "estimate_min": 45,
+        "deadline": "2026-11-26",
+        "priority": "asap",
+        "splittable": false,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      },
+      {
+        "id": "b",
+        "name": "现代汉语章节复习",
+        "estimate_min": 180,
+        "deadline": "2026-11-30",
+        "priority": "high",
+        "splittable": true,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 4
+      },
+      {
+        "id": "c",
+        "name": "英语写作练习",
+        "estimate_min": 90,
+        "deadline": "2026-12-02",
+        "priority": "medium",
+        "splittable": true,
+        "min_chunk": 30,
+        "done_ratio": 0.0,
+        "reschedule_count": 2
+      },
+      {
+        "id": "d",
+        "name": "课外阅读",
+        "estimate_min": 120,
+        "deadline": null,
+        "priority": "low",
+        "splittable": true,
+        "min_chunk": 20,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      }
+    ],
+    "days": [
+      {
+        "day": "2026-11-24",
+        "windows": [
+          [
+            540,
+            90
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-25",
+        "windows": [
+          [
+            540,
+            120
+          ],
+          [
+            1140,
+            60
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-26",
+        "windows": [
+          [
+            540,
+            180
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-27",
+        "windows": [
+          [
+            540,
+            150
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-28",
+        "windows": [
+          [
+            540,
+            240
+          ]
+        ]
+      }
+    ],
+    "expect": {
+      "k": 1.333,
+      "k_source_label": "personal",
+      "capacity_raw_min": 840,
+      "capacity_calibrated_min": 630,
+      "scheduled_ids_in_order": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "no_dropped": true
+    }
+  },
+  {
+    "id": "C4",
+    "title": "最小块边界：剩余不足 min_chunk 时不许切碎片",
+    "today": "2026-11-24",
+    "k": 1.0,
+    "horizon_days": 1,
+    "tasks": [
+      {
+        "id": "big",
+        "name": "长任务可拆",
+        "estimate_min": 160,
+        "deadline": "2026-11-27",
+        "priority": "high",
+        "splittable": true,
+        "min_chunk": 30,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      }
+    ],
+    "days": [
+      {
+        "day": "2026-11-24",
+        "windows": [
+          [
+            540,
+            150
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-25",
+        "windows": [
+          [
+            540,
+            60
+          ]
+        ]
+      }
+    ],
+    "expect": {
+      "big_placed_min": 160,
+      "big_block_sizes": [
+        130,
+        30
+      ],
+      "rule": "任何一块都 >= min_chunk(30)；切分时若剩余会低于 min_chunk，则本次少切，留够下一块"
+    }
+  },
+  {
+    "id": "C5",
+    "title": "不可拆任务必须整块放进同一窗口",
+    "today": "2026-11-24",
+    "k": 1.0,
+    "horizon_days": 1,
+    "tasks": [
+      {
+        "id": "rigid",
+        "name": "不可拆任务",
+        "estimate_min": 100,
+        "deadline": "2026-11-26",
+        "priority": "high",
+        "splittable": false,
+        "min_chunk": 25,
+        "done_ratio": 0.0,
+        "reschedule_count": 0
+      }
+    ],
+    "days": [
+      {
+        "day": "2026-11-24",
+        "windows": [
+          [
+            540,
+            90
+          ]
+        ]
+      },
+      {
+        "day": "2026-11-25",
+        "windows": [
+          [
+            540,
+            120
+          ]
+        ]
+      }
+    ],
+    "expect": {
+      "rigid_status": "scheduled",
+      "rigid_day": "2026-11-25",
+      "rule": "窗口 90 < 需求 100，跳过；进入 120 的窗口整块放下"
+    }
+  },
+  {
+    "id": "C6",
+    "title": "k 的边界：样本不足与钳制",
+    "history_clamp": [
+      [
+        10,
+        50
+      ],
+      [
+        10,
+        60
+      ],
+      [
+        10,
+        55
+      ]
+    ],
+    "history_few": [
+      [
+        10,
+        30
+      ],
+      [
+        10,
+        20
+      ]
+    ],
+    "expect": {
+      "clamp_k": 3.0,
+      "few_k": 1.0,
+      "few_source": "default",
+      "rule": "样本 <3 用默认 1.0；比值中位数超过 3.0 时钳到 3.0，低于 0.5 时钳到 0.5"
+    }
+  }
+]
